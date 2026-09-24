@@ -13,12 +13,20 @@
       <td><?php echo e($r['title']); ?></td>
       <td><?php echo e($r['borrower_type']); ?> #<?php echo e($r['borrower_ref_id']); ?></td>
       <td><?php echo e(ucfirst($r['borrower_type'])); ?></td>
-      <td><?php echo e(ucfirst($r['status'])); ?></td>
+      <td>
+        <?php if ($r['status'] === 'ready'): ?>
+          <span class="badge bg-success">Ready to Pick Up</span>
+        <?php else: ?>
+          <?php echo e(ucfirst($r['status'])); ?>
+        <?php endif; ?>
+      </td>
       <td><?php echo e($r['reserved_at']); ?></td>
       <td><?php echo e($r['expires_at']); ?></td>
       <td>
-        <?php if (in_array($r['status'], ['pending','approved'])): ?>
-          <a href="?url=reservation/ready/<?php echo $r['id']; ?>" class="btn btn-sm btn-success me-1">Mark Ready</a>
+        <?php if ($r['status'] === 'pending'): ?>
+          <a href="?url=reservation/approve/<?php echo (int) $r['id']; ?>" class="btn btn-sm btn-primary me-1" onclick="return confirm('Accept this reservation?');">Accept Reservation</a>
+        <?php elseif ($r['status'] === 'approved'): ?>
+          <a href="?url=reservation/ready/<?php echo (int) $r['id']; ?>" class="btn btn-sm btn-success me-1" onclick="return confirm('Mark this reservation as ready for pickup?');">Ready to Pick Up</a>
         <?php endif; ?>
         <?php if ($r['status'] !== 'cancelled'): ?>
           <a href="?url=reservation/cancel/<?php echo $r['id']; ?>" class="btn btn-sm btn-danger">Cancel</a>

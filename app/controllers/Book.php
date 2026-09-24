@@ -15,12 +15,119 @@ class Book extends Controller
         }
     }
 
+    private function ensureStudentOrFaculty()
+    {
+        if (empty($_SESSION['user_role']) || !in_array($_SESSION['user_role'], ['student', 'faculty'], true)) {
+            redirect(BASE_URL . '/?url=auth/login');
+        }
+    }
+
     public function index()
     {
         $this->ensureAuthenticated();
         $model = new Book_model();
         $books = $model->getAll();
-        $this->view('admin/books/index', ['books' => $books]);
+        $userReservations = [];
+
+        if (in_array($_SESSION['user_role'] ?? '', ['student', 'faculty'], true)) {
+            $role = $_SESSION['user_role'];
+            $userId = $_SESSION['user_id'] ?? null;
+            $borrowerRefId = null;
+
+            if ($role === 'student') {
+                $user = (new Student_model())->getById($userId);
+                $borrowerRefId = $user['student_id'] ?? null;
+            } else {
+                $user = (new Faculty_model())->getById($userId);
+                $borrowerRefId = $user['faculty_id'] ?? null;
+            }
+
+            $idsToCheck = array_unique(array_filter([$borrowerRefId, (string) ($userId ?? ''), (int) ($userId ?? 0)]));
+            foreach ($idsToCheck as $candidateId) {
+                if ($candidateId === '' || $candidateId === null) {
+                    continue;
+                }
+                foreach ((new Reservation_model())->getPendingByBorrower($role, $candidateId) as $reservation) {
+                    $userReservations[(int) $reservation['book_id']] = $reservation;
+                }
+            }
+        }
+
+        $this->view('admin/books/index', ['books' => $books, 'userReservations' => $userReservations]);
+    }
+
+    public function reserve($id = null)
+    {
+        $this->ensureStudentOrFaculty();
+        if (!$id) {
+            redirect(BASE_URL . '/?url=book/index');
+        }
+
+        $book = (new Book_model())->findById((int) $id);
+        if (!$book) {
+            $_SESSION['flash_error'] = 'Book not found.';
+            redirect(BASE_URL . '/?url=book/index');
+        }
+
+        if ($book['status'] !== 'available') {
+            $_SESSION['flash_error'] = 'This book is not available for reservation.';
+            redirect(BASE_URL . '/?url=book/index');
+        }
+
+        $role = $_SESSION['user_role'];
+        $userId = $_SESSION['user_id'] ?? null;
+        $user = $role === 'student' ? (new Student_model())->getById($userId) : (new Faculty_model())->getById($userId);
+        $borrowerRefId = $role === 'student' ? ($user['student_id'] ?? '') : ($user['faculty_id'] ?? '');
+
+        if ($borrowerRefId === '') {
+            $_SESSION['flash_error'] = 'Your account is missing a valid student or faculty ID.';
+            redirect(BASE_URL . '/?url=book/index');
+        }
+
+        $existing = (new Reservation_model())->getPendingByBorrower($role, $borrowerRefId);
+        foreach ($existing as $reservation) {
+            if ((int) $reservation['book_id'] === (int) $book['id']) {
+                $_SESSION['flash_error'] = 'You already have an active reservation for this book.';
+                redirect(BASE_URL . '/?url=profile/history');
+            }
+        }
+
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+3 days'));
+        (new Reservation_model())->create([
+            'book_id' => $book['id'],
+            'rfid_uid' => $book['rfid_uid'] ?? null,
+            'borrower_type' => $role,
+            'borrower_ref_id' => $borrowerRefId,
+            'reserved_at' => date('Y-m-d H:i:s'),
+            'status' => 'pending',
+            'expires_at' => $expiresAt,
+        ]);
+
+        (new Book_model())->updateById($book['id'], ['status' => 'reserved']);
+
+        $userEmail = $user['email'] ?? null;
+        $userName = ($user['firstname'] ?? '') . ' ' . ($user['lastname'] ?? '');
+        if (!empty($userEmail)) {
+            try {
+                $mailer = new Mailer();
+                $subject = APP_NAME . ' - Reservation Confirmation';
+                $body = "<p>Dear " . e(trim($userName)) . ",</p><p>You reserved <strong>" . e($book['title']) . "</strong>.</p><p>Reservation expires: " . e($expiresAt) . "</p>";
+                $mailer->send($userEmail, $subject, $body);
+            } catch (Exception $ex) {
+                // log silently if mail fails
+            }
+        }
+
+        (new Notification_model())->create([
+            'user_type' => $role,
+            'user_ref_id' => (int) $userId,
+            'title' => 'Book Reserved',
+            'message' => "You reserved {$book['title']}. Please collect it before {$expiresAt}.",
+            'type' => 'reservation'
+        ]);
+
+        $_SESSION['flash'] = 'Book reserved successfully. Please collect it before ' . $expiresAt . '.';
+        redirect(BASE_URL . '/?url=profile/history');
     }
 
     public function add()
@@ -35,7 +142,7 @@ class Book extends Controller
 
             $uploadPath = null;
             if (!empty($_FILES['cover_image']['name'])) {
-                $up = (new Register())->handleUpload($_FILES['cover_image']);
+                $up = $this->handleUpload($_FILES['cover_image']);
                 if (!$up['ok']) return $this->view('admin/books/add', ['error'=>$up['error'],'categories'=>$categories,'publishers'=>$publishers]);
                 $uploadPath = $up['path'];
             }
@@ -77,7 +184,7 @@ class Book extends Controller
             }
 
             if (!empty($_FILES['cover_image']['name'])) {
-                $up = (new Register())->handleUpload($_FILES['cover_image']);
+                $up = $this->handleUpload($_FILES['cover_image']);
                 if (!$up['ok']) return $this->view('admin/books/edit', ['error'=>$up['error'],'book'=>$book,'categories'=>$categories,'publishers'=>$publishers]);
                 $data['cover_image'] = $up['path'];
             }

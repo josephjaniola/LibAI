@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS books (
   publisher_id INT DEFAULT NULL,
   date_received DATE DEFAULT NULL,
   rfid_uid VARCHAR(100) DEFAULT NULL UNIQUE,
-  status ENUM('available','borrowed','reserved','overdue','lost','damaged','archived') DEFAULT 'available',
+  status ENUM('available','reserved','ready','borrowed','overdue','lost','damaged','archived') DEFAULT 'available',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT NULL,
   CONSTRAINT fk_books_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS reservations (
   borrower_type ENUM('student','faculty') NOT NULL,
   borrower_ref_id INT NOT NULL,
   reserved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  status ENUM('pending','approved','ready','cancelled') DEFAULT 'pending',
+  status ENUM('pending','approved','ready','borrowed','returned','cancelled') DEFAULT 'pending',
   expires_at DATETIME DEFAULT NULL,
   CONSTRAINT fk_res_book FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
 );

@@ -63,6 +63,7 @@ class Student_model extends Model
     {
         $fields = [];
         $params = [':id' => $id];
+        if (isset($data['student_id'])) { $fields[] = 'student_id = :student_id'; $params[':student_id'] = $data['student_id']; }
         if (isset($data['firstname'])) { $fields[] = 'firstname = :firstname'; $params[':firstname'] = $data['firstname']; }
         if (isset($data['middlename'])) { $fields[] = 'middlename = :middlename'; $params[':middlename'] = $data['middlename']; }
         if (isset($data['lastname'])) { $fields[] = 'lastname = :lastname'; $params[':lastname'] = $data['lastname']; }

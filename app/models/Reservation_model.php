@@ -32,6 +32,31 @@ class Reservation_model extends Model
         return $stmt->execute([':id' => $id]);
     }
 
+    public function approve($id)
+    {
+        $stmt = $this->db->prepare('UPDATE reservations SET status = "approved" WHERE id = :id AND status = "pending"');
+        return $stmt->execute([':id' => $id]);
+    }
+
+    public function markBorrowed($id)
+    {
+        $stmt = $this->db->prepare('UPDATE reservations SET status = "borrowed" WHERE id = :id');
+        return $stmt->execute([':id' => $id]);
+    }
+
+    public function markReturned($id)
+    {
+        $stmt = $this->db->prepare('UPDATE reservations SET status = "returned" WHERE id = :id');
+        return $stmt->execute([':id' => $id]);
+    }
+
+    public function findBorrowedByBook($bookId)
+    {
+        $stmt = $this->db->prepare('SELECT * FROM reservations WHERE book_id = :book_id AND status = "borrowed" ORDER BY reserved_at DESC LIMIT 1');
+        $stmt->execute([':book_id' => $bookId]);
+        return $stmt->fetch();
+    }
+
     public function cancel($id)
     {
         $stmt = $this->db->prepare('UPDATE reservations SET status = "cancelled" WHERE id = :id');

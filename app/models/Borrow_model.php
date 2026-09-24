@@ -25,6 +25,11 @@ class Borrow_model extends Model
 
     public function findActiveByRfid($rfid)
     {
+        $rfid = trim((string) $rfid);
+        if ($rfid === '') {
+            return null;
+        }
+
         $stmt = $this->db->prepare('SELECT * FROM borrow_transactions WHERE rfid_uid = :rfid AND status = "borrowed" LIMIT 1');
         $stmt->execute([':rfid' => $rfid]);
         return $stmt->fetch();

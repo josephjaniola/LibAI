@@ -1,8 +1,10 @@
 <?php $role = $_SESSION['user_role'] ?? 'admin'; ?>
+<?php $displayName = trim((string) ($_SESSION['user_name'] ?? '')); ?>
+<?php $displayName = $displayName !== '' ? $displayName : 'there'; ?>
 <div class="dashboard-shell role-<?php echo htmlspecialchars($role); ?>">
     <div class="dashboard-header mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
         <div>
-            <p class="text-muted mb-1">Welcome back, <?php echo ucfirst(htmlspecialchars($role)); ?></p>
+            <p class="text-muted mb-1">Welcome back, <?php echo htmlspecialchars($displayName); ?></p>
             <h1 class="h3 mb-0">
                 <?php echo $role === 'admin' ? 'Admin Dashboard' : ($role === 'librarian' ? 'Librarian Dashboard' : ($role === 'student' ? 'Student Dashboard' : 'Faculty Dashboard')); ?>
             </h1>
@@ -12,6 +14,22 @@
             <a href="?url=auth/logout" class="btn btn-secondary">Logout</a>
         </div>
     </div>
+
+    <?php if (in_array($role, ['student', 'faculty'], true) && (($stats['due_soon'] ?? 0) > 0 || ($stats['overdue_books'] ?? 0) > 0)): ?>
+        <div class="alert <?php echo ($stats['overdue_books'] ?? 0) > 0 ? 'alert-danger' : 'alert-warning'; ?> d-flex justify-content-between align-items-center gap-3" role="alert">
+            <div>
+                <strong><?php echo ($stats['overdue_books'] ?? 0) > 0 ? 'Book return warning' : 'Due date reminder'; ?></strong>
+                <div>
+                    <?php if (($stats['overdue_books'] ?? 0) > 0): ?>
+                        You have <?php echo (int) $stats['overdue_books']; ?> overdue book<?php echo $stats['overdue_books'] == 1 ? '' : 's'; ?>. Please return it as soon as possible.
+                    <?php else: ?>
+                        You have <?php echo (int) $stats['due_soon']; ?> book<?php echo $stats['due_soon'] == 1 ? '' : 's'; ?> due within 3 days.
+                    <?php endif; ?>
+                </div>
+            </div>
+            <a href="?url=profile/history" class="btn btn-sm btn-outline-dark">View Due Dates</a>
+        </div>
+    <?php endif; ?>
 
     <div class="stats-grid">
         <?php if ($role === 'admin'): ?>
@@ -84,27 +102,44 @@
             </div>
         <?php else: ?>
             <div class="dashboard-card">
-                <div class="card-header"><span class="label">Borrowed Resources</span></div>
+                <div class="card-header"><span class="label">Borrowed Books</span></div>
                 <p class="metric-value"><?php echo e($stats['borrowed_books'] ?? 0); ?></p>
-                <p class="metric-label">Items currently checked out.</p>
+                <p class="metric-label">Books currently checked out.</p>
             </div>
             <div class="dashboard-card">
-                <div class="card-header"><span class="label">Available Materials</span></div>
+                <div class="card-header"><span class="label">Available Books</span></div>
                 <p class="metric-value"><?php echo e($stats['available_books'] ?? 0); ?></p>
-                <p class="metric-label">Resources available in the catalog.</p>
+                <p class="metric-label">Books available in the catalog.</p>
             </div>
             <div class="dashboard-card">
                 <div class="card-header"><span class="label">Reservations</span></div>
                 <p class="metric-value"><?php echo e($stats['reserved_books'] ?? 0); ?></p>
-                <p class="metric-label">Requests pending fulfillment.</p>
+                <p class="metric-label">Active book reservations.</p>
             </div>
             <div class="dashboard-card">
-                <div class="card-header"><span class="label">Research Requests</span></div>
-                <p class="metric-value"><?php echo e($stats['research_materials'] ?? 0); ?></p>
-                <p class="metric-label">Research materials requested.</p>
+                <div class="card-header"><span class="label">Unread Notifications</span></div>
+                <p class="metric-value"><?php echo e($stats['unread_notifications'] ?? 0); ?></p>
+                <p class="metric-label">Library alerts and reminders.</p>
             </div>
         <?php endif; ?>
     </div>
+
+    <?php if (in_array($role, ['student', 'faculty'], true)): ?>
+        <div class="mt-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+                    <div>
+                        <h2 class="h5 mb-1">Reserve a Book</h2>
+                        <p class="mb-0 text-muted">Browse available books and reserve the ones you want before they are taken.</p>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="?url=book/index" class="btn btn-primary">Go to Catalog</a>
+                        <a href="?url=profile/history" class="btn btn-outline-primary">My Borrowed Books</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <?php if (!empty($recommendations)): ?>
         <div class="mt-4">

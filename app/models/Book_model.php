@@ -3,8 +3,37 @@ class Book_model extends Model
 {
     protected $table = 'books';
 
+    private function normalizeRfidUid($value)
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+        return $value === '' ? null : $value;
+    }
+
+    private function normalizeBookData(array $data): array
+    {
+        if (array_key_exists('rfid_uid', $data)) {
+            $data['rfid_uid'] = $this->normalizeRfidUid($data['rfid_uid']);
+        }
+
+        if (array_key_exists('status', $data)) {
+            $status = trim((string) $data['status']);
+            $data['status'] = $status === '' ? 'available' : $status;
+        }
+
+        return $data;
+    }
+
     public function findByRfid($rfid)
     {
+        $rfid = $this->normalizeRfidUid($rfid);
+        if ($rfid === null) {
+            return null;
+        }
+
         $sql = 'SELECT * FROM books WHERE rfid_uid = :rfid LIMIT 1';
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':rfid' => $rfid]);
@@ -35,6 +64,7 @@ class Book_model extends Model
 
     public function create($data)
     {
+        $data = $this->normalizeBookData($data);
         $sql = 'INSERT INTO books (title, subtitle, isbn, accession_number, call_number, edition, volume, pages, category_id, language, shelf_location, year_published, description, keywords, remarks, cover_image, publisher_id, date_received, rfid_uid, status) VALUES (:title, :subtitle, :isbn, :accession_number, :call_number, :edition, :volume, :pages, :category_id, :language, :shelf_location, :year_published, :description, :keywords, :remarks, :cover_image, :publisher_id, :date_received, :rfid_uid, :status)';
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
@@ -51,6 +81,7 @@ class Book_model extends Model
 
     public function updateById($id, $data)
     {
+        $data = $this->normalizeBookData($data);
         $fields = [];
         $params = [':id' => $id];
         foreach ($data as $k => $v) {

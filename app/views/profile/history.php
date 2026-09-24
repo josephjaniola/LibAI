@@ -42,7 +42,7 @@
       <div class="card-body p-0">
         <table class="table table-sm table-striped mb-0">
           <thead>
-            <tr><th>Title</th><th>Reserved At</th><th>Status</th></tr>
+            <tr><th>Title</th><th>Reserved At</th><th>Due Date</th><th>Status</th><th>Action</th></tr>
           </thead>
           <tbody>
             <?php if (!empty($reservations)): ?>
@@ -50,11 +50,19 @@
                 <tr>
                   <td><?php echo e($reservation['title']); ?></td>
                   <td><?php echo e($reservation['reserved_at']); ?></td>
+                  <td><?php echo e($reservation['expires_at'] ?? '-'); ?></td>
                   <td><?php echo e(ucfirst($reservation['status'])); ?></td>
+                  <td>
+                    <?php if (in_array($reservation['status'], ['pending', 'approved', 'ready'], true)): ?>
+                      <a href="?url=reservation/cancel/<?php echo (int) $reservation['id']; ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Cancel this reservation?');">Cancel</a>
+                    <?php else: ?>
+                      <span class="text-muted small">-</span>
+                    <?php endif; ?>
+                  </td>
                 </tr>
               <?php endforeach; ?>
             <?php else: ?>
-              <tr><td colspan="3" class="text-center">No reservation history available.</td></tr>
+              <tr><td colspan="5" class="text-center">No reservation history available.</td></tr>
             <?php endif; ?>
           </tbody>
         </table>

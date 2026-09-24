@@ -149,10 +149,12 @@ class Auth extends Controller
         }
 
         $email = strtolower(trim($profile['email']));
-        $user = $this->findUserByEmailOrPhone($email);
+        $user = $this->findGoogleEligibleUserByEmailOrPhone($email);
         if (!$user) {
-            $_SESSION['flash_error'] = 'No existing LibAI account matches that Google email. Please create an account first.';
-            redirect(BASE_URL . '/?url=auth/login');
+            $_SESSION['google_signup_email'] = $email;
+            $_SESSION['google_signup_name'] = $profile['name'] ?? '';
+            $_SESSION['flash_error'] = 'No existing student or faculty account matches that Google email. Please create an account first.';
+            redirect(BASE_URL . '/?url=register');
         }
 
         $this->completeLogin($user['role'], $user, 'google', [
@@ -351,6 +353,24 @@ class Auth extends Controller
 
         foreach (['admin' => new Admin_model(), 'librarian' => new Librarian_model(), 'student' => new Student_model(), 'faculty' => new Faculty_model()] as $role => $model) {
             $user = $model->findByEmailOrPhone($normalized);
+            if ($user) {
+                $user['role'] = $role;
+                return $user;
+            }
+        }
+
+        return null;
+    }
+
+    private function findGoogleEligibleUserByEmailOrPhone($identifier)
+    {
+        $identifier = trim((string) $identifier);
+        if ($identifier === '') {
+            return null;
+        }
+
+        foreach (['student' => new Student_model(), 'faculty' => new Faculty_model()] as $role => $model) {
+            $user = $model->findByEmailOrPhone($identifier);
             if ($user) {
                 $user['role'] = $role;
                 return $user;

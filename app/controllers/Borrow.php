@@ -22,13 +22,44 @@ class Borrow extends Controller
         $csrf = $_POST['_csrf'] ?? '';
         if (!verify_csrf_token($csrf)) { $_SESSION['flash_error'] = 'Invalid CSRF token.'; redirect(BASE_URL . '/?url=borrow/index'); }
 
+        if (($_POST['action'] ?? '') === 'ready') {
+            $this->prepareReservationForPickup();
+        }
+
         $borrower_type = $_POST['borrower_type'];
         $borrower_ref_id = $_POST['borrower_ref_id'];
         $rfid = $_POST['rfid_uid'] ?? null;
         $due_date = $_POST['due_date'] ?? date('Y-m-d H:i:s', strtotime('+14 days'));
 
         $book = (new Book_model())->findByRfid($rfid);
-        if (!$book || $book['status'] !== 'available') { $_SESSION['flash_error'] = 'Book not available.'; redirect(BASE_URL . '/?url=borrow/index'); }
+        if (!$book) {
+            $_SESSION['flash_error'] = 'No book was found with that RFID.';
+            redirect(BASE_URL . '/?url=borrow/index');
+        }
+
+        $activeReservation = (new Reservation_model())->findActive($book['id']);
+        $bookIsReadyForPickup = $book['status'] === 'ready' || ($activeReservation && $activeReservation['status'] === 'ready');
+
+        if (!in_array($book['status'], ['available', 'reserved', 'ready'], true)) {
+            $_SESSION['flash_error'] = 'This book cannot be borrowed because its status is ' . $book['status'] . '.';
+            redirect(BASE_URL . '/?url=borrow/index');
+        }
+
+        if ($book['status'] !== 'available' && !$bookIsReadyForPickup) {
+            $_SESSION['flash_error'] = 'This reservation must be accepted and marked Ready to Pick Up first.';
+            redirect(BASE_URL . '/?url=borrow/index');
+        }
+
+        if ($bookIsReadyForPickup) {
+            if (!$activeReservation) {
+                $_SESSION['flash_error'] = 'This ready book is not linked to an active reservation.';
+                redirect(BASE_URL . '/?url=borrow/index');
+            }
+            if ($activeReservation['borrower_type'] !== $borrower_type || (string) $activeReservation['borrower_ref_id'] !== (string) $borrower_ref_id) {
+                $_SESSION['flash_error'] = 'This book is reserved for a different borrower.';
+                redirect(BASE_URL . '/?url=borrow/index');
+            }
+        }
 
         // lookup borrower name/email/phone
         if ($borrower_type === 'student') {
@@ -58,6 +89,10 @@ class Borrow extends Controller
         // update book status
         (new Book_model())->updateById($book['id'], ['status' => 'borrowed']);
 
+        if ($activeReservation) {
+            (new Reservation_model())->markBorrowed($activeReservation['id']);
+        }
+
         // send borrow confirmation email if possible
         if (!empty($email)) {
             try {
@@ -84,6 +119,37 @@ class Borrow extends Controller
         redirect(BASE_URL . '/?url=borrow/index');
     }
 
+    private function prepareReservationForPickup()
+    {
+        $borrowerType = $_POST['borrower_type'] ?? '';
+        $borrowerRefId = trim($_POST['borrower_ref_id'] ?? '');
+        $rfid = trim($_POST['rfid_uid'] ?? '');
+        $book = (new Book_model())->findByRfid($rfid);
+
+        if (!$borrowerType || !$borrowerRefId || !$book) {
+            $_SESSION['flash_error'] = 'Enter the borrower details and a valid book RFID first.';
+            redirect(BASE_URL . '/?url=borrow/index');
+        }
+
+        $reservation = (new Reservation_model())->findActive($book['id']);
+        if (!$reservation) {
+            $_SESSION['flash_error'] = 'No active reservation was found for this book.';
+            redirect(BASE_URL . '/?url=borrow/index');
+        }
+
+        if ($reservation['borrower_type'] !== $borrowerType || (string) $reservation['borrower_ref_id'] !== (string) $borrowerRefId) {
+            $_SESSION['flash_error'] = 'This book is reserved for a different borrower.';
+            redirect(BASE_URL . '/?url=borrow/index');
+        }
+
+        if ($reservation['status'] !== 'approved') {
+            $_SESSION['flash_error'] = 'Accept this reservation first, then mark it Ready to Pick Up.';
+            redirect(BASE_URL . '/?url=borrow/index');
+        }
+
+        redirect(BASE_URL . '/?url=reservation/ready/' . (int) $reservation['id']);
+    }
+
     public function return()
     {
         $this->ensureLibrarian();
@@ -97,13 +163,18 @@ class Borrow extends Controller
         $csrf = $_POST['_csrf'] ?? '';
         if (!verify_csrf_token($csrf)) { $_SESSION['flash_error'] = 'Invalid CSRF token.'; redirect(BASE_URL . '/?url=borrow/return'); }
 
-        $rfid = $_POST['rfid_uid'] ?? null;
+        $rfid = trim((string) ($_POST['rfid_uid'] ?? ''));
         $borrowModel = new Borrow_model();
         $tx = $borrowModel->findActiveByRfid($rfid);
-        if (!$tx) { $_SESSION['flash_error'] = 'No active borrow found for this book.'; redirect(BASE_URL . '/?url=borrow/return'); }
+        if (!$tx) { $_SESSION['flash_error'] = 'No active borrow found for this RFID. Scan or type the exact book RFID.'; redirect(BASE_URL . '/?url=borrow/return'); }
 
         $borrowModel->markReturned($tx['id']);
         (new Book_model())->updateById($tx['book_id'], ['status' => 'available']);
+
+        $reservation = (new Reservation_model())->findBorrowedByBook($tx['book_id']);
+        if ($reservation) {
+            (new Reservation_model())->markReturned($reservation['id']);
+        }
 
         // send return confirmation email
         if (!empty($tx['borrower_email'])) {

@@ -8,10 +8,13 @@ class Register extends Controller
 
     public function student()
     {
+        $googleName = $_SESSION['google_signup_name'] ?? '';
+        $nameParts = $googleName !== '' ? preg_split('/\s+/', trim($googleName), -1, PREG_SPLIT_NO_EMPTY) : [];
+
         $prefill = [
             'email' => $_SESSION['google_signup_email'] ?? '',
-            'firstname' => $_SESSION['google_signup_name'] ? explode(' ', trim($_SESSION['google_signup_name']))[0] : '',
-            'lastname' => $_SESSION['google_signup_name'] ? (isset(explode(' ', trim($_SESSION['google_signup_name']))[1]) ? explode(' ', trim($_SESSION['google_signup_name']))[1] : '') : '',
+            'firstname' => $nameParts[0] ?? '',
+            'lastname' => $nameParts[1] ?? '',
         ];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -80,10 +83,13 @@ class Register extends Controller
 
     public function faculty()
     {
+        $googleName = $_SESSION['google_signup_name'] ?? '';
+        $nameParts = $googleName !== '' ? preg_split('/\s+/', trim($googleName), -1, PREG_SPLIT_NO_EMPTY) : [];
+
         $prefill = [
             'email' => $_SESSION['google_signup_email'] ?? '',
-            'firstname' => $_SESSION['google_signup_name'] ? explode(' ', trim($_SESSION['google_signup_name']))[0] : '',
-            'lastname' => $_SESSION['google_signup_name'] ? (isset(explode(' ', trim($_SESSION['google_signup_name']))[1]) ? explode(' ', trim($_SESSION['google_signup_name']))[1] : '') : '',
+            'firstname' => $nameParts[0] ?? '',
+            'lastname' => $nameParts[1] ?? '',
         ];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -150,22 +156,8 @@ class Register extends Controller
         $this->view('register/faculty', $prefill);
     }
 
-    private function handleUpload($file)
+    protected function handleUpload($file)
     {
-        $allowed = ['image/jpeg','image/png','image/jpg'];
-        if ($file['error'] !== UPLOAD_ERR_OK) return ['ok' => false, 'error' => 'Upload error.'];
-        if ($file['size'] > 2 * 1024 * 1024) return ['ok' => false, 'error' => 'File too large (max 2MB).'];
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = finfo_file($finfo, $file['tmp_name']);
-        finfo_close($finfo);
-        if (!in_array($mime, $allowed)) return ['ok' => false, 'error' => 'Invalid file type.'];
-
-        $ext = $mime === 'image/png' ? 'png' : 'jpg';
-        $name = uniqid('prof_') . '.' . $ext;
-        $destDir = __DIR__ . '/../../uploads/profiles';
-        if (!is_dir($destDir)) mkdir($destDir, 0755, true);
-        $dest = $destDir . '/' . $name;
-        if (!move_uploaded_file($file['tmp_name'], $dest)) return ['ok' => false, 'error' => 'Failed to move uploaded file.'];
-        return ['ok' => true, 'path' => 'uploads/profiles/' . $name];
+        return parent::handleUpload($file);
     }
 }

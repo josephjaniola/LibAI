@@ -37,7 +37,10 @@
         <label>Due Date</label>
         <input type="datetime-local" name="due_date" class="form-control">
       </div>
-      <div class="d-grid"><button class="btn btn-primary">Borrow</button></div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-success" type="submit" name="action" value="ready">Ready to Pick Up</button>
+        <button class="btn btn-primary" type="submit" name="action" value="borrow">Borrow</button>
+      </div>
     </form>
   </div>
 </div>

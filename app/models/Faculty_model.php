@@ -63,6 +63,7 @@ class Faculty_model extends Model
     {
         $fields = [];
         $params = [':id' => $id];
+        if (isset($data['faculty_id'])) { $fields[] = 'faculty_id = :faculty_id'; $params[':faculty_id'] = $data['faculty_id']; }
         if (isset($data['firstname'])) { $fields[] = 'firstname = :firstname'; $params[':firstname'] = $data['firstname']; }
         if (isset($data['middlename'])) { $fields[] = 'middlename = :middlename'; $params[':middlename'] = $data['middlename']; }
         if (isset($data['lastname'])) { $fields[] = 'lastname = :lastname'; $params[':lastname'] = $data['lastname']; }

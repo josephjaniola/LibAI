@@ -18,7 +18,7 @@ class Home extends Controller
             $stats['total_books'] = $db->query('SELECT COUNT(*) FROM books')->fetchColumn();
             $stats['available_books'] = $db->query("SELECT COUNT(*) FROM books WHERE status = 'available'")->fetchColumn();
             $stats['borrowed_books'] = $db->query("SELECT COUNT(*) FROM books WHERE status = 'borrowed'")->fetchColumn();
-            $stats['overdue_books'] = $db->query("SELECT COUNT(*) FROM books WHERE status = 'overdue'")->fetchColumn();
+            $stats['overdue_books'] = $db->query("SELECT COUNT(*) FROM borrow_transactions WHERE status = 'overdue' OR (status = 'borrowed' AND due_date < NOW())")->fetchColumn();
             $stats['lost_books'] = $db->query("SELECT COUNT(*) FROM books WHERE status = 'lost'")->fetchColumn();
             $stats['damaged_books'] = $db->query("SELECT COUNT(*) FROM books WHERE status = 'damaged'")->fetchColumn();
             $stats['total_students'] = $db->query('SELECT COUNT(*) FROM students')->fetchColumn();
@@ -39,24 +39,39 @@ class Home extends Controller
             $stats['daily_activity'] = $db->query("SELECT DATE_FORMAT(borrow_date, '%b %d') AS period, COUNT(*) AS total FROM borrow_transactions WHERE borrow_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) GROUP BY period ORDER BY borrow_date ASC")->fetchAll();
         } elseif (in_array($role, ['student', 'faculty'], true)) {
             $borrowerType = $role;
+            $borrowerRefId = null;
+
+            if ($borrowerType === 'student') {
+                $student = (new Student_model())->getById($userId);
+                $borrowerRefId = $student['student_id'] ?? null;
+            } else {
+                $faculty = (new Faculty_model())->getById($userId);
+                $borrowerRefId = $faculty['faculty_id'] ?? null;
+            }
+
             $stmt = $db->prepare('SELECT COUNT(*) FROM borrow_transactions WHERE borrower_type = :type AND borrower_ref_id = :uid AND status IN ("borrowed","overdue")');
-            $stmt->execute([':type' => $borrowerType, ':uid' => $userId]);
+            $stmt->execute([':type' => $borrowerType, ':uid' => $borrowerRefId]);
             $stats['borrowed_books'] = $stmt->fetchColumn();
 
             $stmt = $db->prepare('SELECT COUNT(*) FROM borrow_transactions WHERE borrower_type = :type AND borrower_ref_id = :uid AND status = "borrowed" AND due_date <= DATE_ADD(NOW(), INTERVAL 3 DAY)');
-            $stmt->execute([':type' => $borrowerType, ':uid' => $userId]);
+            $stmt->execute([':type' => $borrowerType, ':uid' => $borrowerRefId]);
             $stats['due_soon'] = $stmt->fetchColumn();
 
+            $stmt = $db->prepare('SELECT COUNT(*) FROM borrow_transactions WHERE borrower_type = :type AND borrower_ref_id = :uid AND (status = "overdue" OR (status = "borrowed" AND due_date < NOW()))');
+            $stmt->execute([':type' => $borrowerType, ':uid' => $borrowerRefId]);
+            $stats['overdue_books'] = $stmt->fetchColumn();
+
             $stmt = $db->prepare('SELECT COUNT(*) FROM borrow_transactions WHERE borrower_type = :type AND borrower_ref_id = :uid AND status = "returned"');
-            $stmt->execute([':type' => $borrowerType, ':uid' => $userId]);
+            $stmt->execute([':type' => $borrowerType, ':uid' => $borrowerRefId]);
             $stats['history_count'] = $stmt->fetchColumn();
 
+            $stats['available_books'] = $db->query("SELECT COUNT(*) FROM books WHERE status = 'available'")->fetchColumn();
             $stats['new_arrivals'] = $db->query("SELECT COUNT(*) FROM books WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")->fetchColumn();
             $stmt = $db->prepare('SELECT COUNT(*) FROM notifications WHERE user_type = :type AND user_ref_id = :uid AND is_read = 0');
             $stmt->execute([':type' => $borrowerType, ':uid' => $userId]);
             $stats['unread_notifications'] = $stmt->fetchColumn();
             $stmt = $db->prepare('SELECT COUNT(*) FROM reservations WHERE borrower_type = :type AND borrower_ref_id = :uid AND status IN ("pending","approved","ready")');
-            $stmt->execute([':type' => $borrowerType, ':uid' => $userId]);
+            $stmt->execute([':type' => $borrowerType, ':uid' => $borrowerRefId]);
             $stats['reserved_books'] = $stmt->fetchColumn();
 
             $recommendations = (new Recommendation_model())->recommendForUser($borrowerType, $userId, 6);
