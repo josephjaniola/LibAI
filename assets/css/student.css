@@ -1,0 +1,118 @@
+:root {
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-border: rgba(148, 163, 184, 0.25);
+  --surface-soft: rgba(13, 110, 253, 0.08);
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+  --primary: #0d6efd;
+  --primary-hover: #0b5ed7;
+  --shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+}
+
+body.role-student {
+  color: var(--text-primary);
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+body.role-student .app-topnav,
+body.role-student .app-sidebar {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+body.role-student .sidebar-header {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+body.role-student .brand-link,
+body.role-student .topnav-menu a,
+body.role-student .topnav-actions .btn-outline-primary,
+body.role-student .sidebar-link {
+  color: var(--text-primary);
+}
+
+body.role-student .sidebar-link {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  border-radius: 16px;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+body.role-student .sidebar-link:hover,
+body.role-student .sidebar-link.active,
+body.role-student .sidebar-nav a:hover,
+body.role-student .sidebar-nav a.active {
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  transform: translateX(2px);
+}
+
+body.role-student .card,
+body.role-student .dashboard-card,
+body.role-student .list-group-item,
+body.role-student .proposal-card {
+  background: var(--surface);
+  color: var(--text-primary);
+  border-color: var(--surface-border);
+}
+
+body.role-student .dashboard-card {
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+body.role-student .metric-value {
+  color: var(--text-primary);
+}
+
+body.role-student .metric-label,
+body.role-student .text-muted,
+body.role-student .card-header .label {
+  color: var(--text-muted);
+}
+
+body.role-student .btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+body.role-student .btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+body.role-student .btn-secondary,
+body.role-student .btn-outline-primary {
+  color: var(--text-primary);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+body.role-student .btn-secondary:hover,
+body.role-student .btn-outline-primary:hover {
+  background: #e2e8f0;
+}
+
+body.role-student .app-sidebar {
+  width: 260px;
+}
+
+body.role-student .page-content {
+  margin-left: 280px;
+}
+
+@media (max-width: 1200px) {
+  body.role-student .app-sidebar {
+    width: 100%;
+  }
+
+  body.role-student .page-content {
+    margin-left: 0;
+  }
+}

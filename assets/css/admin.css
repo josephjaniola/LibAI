@@ -1,0 +1,176 @@
+:root {
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-border: rgba(148, 163, 184, 0.25);
+  --surface-soft: rgba(13, 110, 253, 0.08);
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+  --primary: #0d6efd;
+  --primary-hover: #0b5ed7;
+  --shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+}
+
+body.role-admin {
+  color: var(--text-primary);
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+body.role-admin .app-topnav,
+body.role-admin .app-sidebar {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+body.role-admin .brand-link,
+body.role-admin .topnav-menu a,
+body.role-admin .topnav-actions .btn-outline-primary,
+body.role-admin .sidebar-link {
+  color: var(--text-primary);
+}
+
+body.role-admin .sidebar-header {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+body.role-admin .sidebar-link {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  border-radius: 16px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+body.role-admin .sidebar-link:hover,
+body.role-admin .sidebar-link.active,
+body.role-admin .sidebar-nav a:hover,
+body.role-admin .sidebar-nav a.active {
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  transform: translateX(1px);
+}
+
+body.role-admin .card,
+body.role-admin .dashboard-card,
+body.role-admin .list-group-item,
+body.role-admin .proposal-card {
+  background: var(--surface);
+  color: var(--text-primary);
+  border-color: var(--surface-border);
+}
+
+body.role-admin .dashboard-card {
+  padding: 1.75rem;
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+body.role-admin .dashboard-card .card-header {
+  margin-bottom: 1rem;
+}
+
+body.role-admin .dashboard-card .metric-value {
+  font-size: 2.5rem;
+  color: var(--text-primary);
+}
+
+body.role-admin .dashboard-card .metric-label {
+  color: var(--text-muted);
+}
+
+body.role-admin .card h1,
+body.role-admin .card h2,
+body.role-admin .card h3,
+body.role-admin .card h4,
+body.role-admin .card h5,
+body.role-admin .card h6,
+body.role-admin .card p,
+body.role-admin .card li,
+body.role-admin .card span,
+body.role-admin .card small,
+body.role-admin .proposal-card p,
+body.role-admin .proposal-card li {
+  color: var(--text-primary);
+}
+
+body.role-admin .metric-value,
+body.role-admin .metric-label,
+body.role-admin .text-muted,
+body.role-admin .card-header .label {
+  color: var(--text-muted);
+}
+
+body.role-admin .btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+body.role-admin .btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+body.role-admin .btn-secondary {
+  background: var(--surface-muted);
+  border-color: rgba(148, 163, 184, 0.18);
+  color: var(--text-primary);
+}
+
+body.role-admin .btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+body.role-admin .sidebar-menu,
+body.role-admin .sidebar-link {
+  word-break: break-word;
+}
+
+body.role-admin .app-sidebar {
+  width: 240px;
+}
+
+body.role-admin .page-content {
+  margin-left: 260px;
+}
+
+body.role-admin .dashboard-header {
+  padding: 1.5rem 1.75rem;
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: var(--shadow);
+}
+
+body.role-admin .dashboard-header .btn-outline-primary {
+  color: var(--text-primary);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+body.role-admin .dashboard-header .btn-outline-primary:hover {
+  background: #f1f5f9;
+}
+
+@media (max-width: 1200px) {
+  body.role-admin .app-sidebar {
+    width: 100%;
+  }
+
+  body.role-admin .page-content {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 1200px) {
+  body.role-admin .app-sidebar {
+    width: 100%;
+  }
+
+  body.role-admin .page-content {
+    margin-left: 0;
+  }
+}
+

@@ -1,0 +1,118 @@
+:root {
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-border: rgba(148, 163, 184, 0.25);
+  --surface-soft: rgba(13, 110, 253, 0.08);
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+  --primary: #0d6efd;
+  --primary-hover: #0b5ed7;
+  --shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+}
+
+body.role-faculty {
+  color: var(--text-primary);
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+
+body.role-faculty .app-topnav,
+body.role-faculty .app-sidebar {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+body.role-faculty .sidebar-header {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+body.role-faculty .brand-link,
+body.role-faculty .topnav-menu a,
+body.role-faculty .topnav-actions .btn-outline-primary,
+body.role-faculty .sidebar-link {
+  color: var(--text-primary);
+}
+
+body.role-faculty .sidebar-link {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  border-radius: 16px;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+body.role-faculty .sidebar-link:hover,
+body.role-faculty .sidebar-link.active,
+body.role-faculty .sidebar-nav a:hover,
+body.role-faculty .sidebar-nav a.active {
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  transform: translateX(2px);
+}
+
+body.role-faculty .card,
+body.role-faculty .dashboard-card,
+body.role-faculty .list-group-item,
+body.role-faculty .proposal-card {
+  background: var(--surface);
+  color: var(--text-primary);
+  border-color: var(--surface-border);
+}
+
+body.role-faculty .dashboard-card {
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+body.role-faculty .metric-value {
+  color: var(--text-primary);
+}
+
+body.role-faculty .metric-label,
+body.role-faculty .text-muted,
+body.role-faculty .card-header .label {
+  color: var(--text-muted);
+}
+
+body.role-faculty .btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+body.role-faculty .btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+body.role-faculty .btn-secondary,
+body.role-faculty .btn-outline-primary {
+  color: var(--text-primary);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+body.role-faculty .btn-secondary:hover,
+body.role-faculty .btn-outline-primary:hover {
+  background: #e2e8f0;
+}
+
+body.role-faculty .app-sidebar {
+  width: 260px;
+}
+
+body.role-faculty .page-content {
+  margin-left: 280px;
+}
+
+@media (max-width: 1200px) {
+  body.role-faculty .app-sidebar {
+    width: 100%;
+  }
+
+  body.role-faculty .page-content {
+    margin-left: 0;
+  }
+}
