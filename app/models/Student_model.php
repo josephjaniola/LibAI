@@ -23,6 +23,13 @@ class Student_model extends Model
         return $stmt->fetch();
     }
 
+    public function findByEmail($email)
+    {
+        $stmt = $this->db->prepare('SELECT * FROM students WHERE LOWER(TRIM(email)) = :email LIMIT 1');
+        $stmt->execute([':email' => strtolower(trim((string) $email))]);
+        return $stmt->fetch();
+    }
+
     public function existsByStudentIdOrEmail($student_id, $email)
     {
         $sql = 'SELECT COUNT(*) as cnt FROM students WHERE student_id = :sid OR email = :em';

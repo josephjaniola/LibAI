@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/config/config.php';
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
 require_once __DIR__ . '/app/core/Database.php';
 require_once __DIR__ . '/app/core/App.php';
 require_once __DIR__ . '/app/core/Controller.php';
@@ -19,6 +22,10 @@ spl_autoload_register(function ($class) {
         }
     }
 });
+
+if (PHP_SAPI !== 'cli') {
+    (new DueNotificationService())->sendDueNotifications();
+}
 
 (new App())->run();
 

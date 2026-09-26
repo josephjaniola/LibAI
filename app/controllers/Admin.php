@@ -168,12 +168,13 @@ class Admin extends Controller
 
     private function sendAnnouncementEmail($title, $message, $imagePath = null)
     {
-        $admins = (new Admin_model())->getAll();
+        $students = (new Student_model())->getAll();
+        $faculty = (new Faculty_model())->getAll();
         $recipients = [];
 
-        foreach ($admins as $admin) {
-            if (!empty($admin['email'])) {
-                $recipients[] = $admin['email'];
+        foreach (array_merge($students, $faculty) as $user) {
+            if (!empty($user['email'])) {
+                $recipients[] = $user['email'];
             }
         }
 

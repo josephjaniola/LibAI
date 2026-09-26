@@ -4,9 +4,10 @@ if (!function_exists('generate_csrf_token')) {
     function generate_csrf_token()
     {
         if (session_status() === PHP_SESSION_NONE) session_start();
-        $token = bin2hex(random_bytes(16));
-        $_SESSION['_csrf_token'] = $token;
-        return $token;
+        if (empty($_SESSION['_csrf_token'])) {
+            $_SESSION['_csrf_token'] = bin2hex(random_bytes(16));
+        }
+        return $_SESSION['_csrf_token'];
     }
 }
 
@@ -45,16 +46,20 @@ if (!function_exists('normalize_phone_number')) {
             return '';
         }
 
-        $digits = preg_replace('/[^0-9+]/', '', $phone);
+        $digits = preg_replace('/\D/', '', $phone);
         if ($digits === '') {
             return '';
         }
 
-        if (strpos($digits, '+') === false && strlen($digits) >= 10) {
-            $digits = '+' . ltrim($digits, '+');
+        if (preg_match('/^09\d{9}$/', $digits)) {
+            return '+63' . substr($digits, 1);
         }
 
-        return $digits;
+        if (preg_match('/^639\d{9}$/', $digits)) {
+            return '+' . $digits;
+        }
+
+        return '+' . $digits;
     }
 }
 
@@ -83,10 +88,58 @@ if (!function_exists('getCourseOptions')) {
         return [
             'HM' => 'HM',
             'TM' => 'TM',
-            'EDUC' => 'EDUC',
+            'BEED' => 'BEED',
+            'BSED' => 'BSED',
             'IT' => 'IT',
             'CRIMINOLOGY' => 'CRIMINOLOGY'
         ];
+    }
+}
+
+if (!function_exists('isPhilippinesMobileNumber')) {
+    function isPhilippinesMobileNumber($number)
+    {
+        return preg_match('/^(?:09[0-9]{9}|\+639[0-9]{9})$/D', (string) $number) === 1;
+    }
+}
+
+if (!function_exists('getProfilePictureUrl')) {
+    function getProfilePictureUrl($picture)
+    {
+        $picture = trim((string) $picture);
+        if ($picture === '') {
+            return '';
+        }
+
+        if (preg_match('/^https?:\/\//i', $picture)) {
+            return $picture;
+        }
+
+        return rtrim(BASE_URL, '/') . '/' . ltrim($picture, '/');
+    }
+}
+
+if (!function_exists('getNameInitials')) {
+    function getNameInitials($name)
+    {
+        $parts = preg_split('/\s+/', trim((string) $name), -1, PREG_SPLIT_NO_EMPTY);
+        if (!$parts) {
+            return 'U';
+        }
+
+        $words = [$parts[0]];
+        if (count($parts) > 1) {
+            $words[] = $parts[count($parts) - 1];
+        }
+
+        $initials = '';
+        foreach ($words as $word) {
+            if (preg_match('/^./u', $word, $match)) {
+                $initials .= $match[0];
+            }
+        }
+
+        return function_exists('mb_strtoupper') ? mb_strtoupper($initials) : strtoupper($initials);
     }
 }
 

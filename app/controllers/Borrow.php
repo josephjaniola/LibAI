@@ -27,9 +27,19 @@ class Borrow extends Controller
         }
 
         $borrower_type = $_POST['borrower_type'];
-        $borrower_ref_id = $_POST['borrower_ref_id'];
-        $rfid = $_POST['rfid_uid'] ?? null;
+        $borrower_ref_id = trim((string) ($_POST['borrower_ref_id'] ?? ''));
+        $rfid = trim((string) ($_POST['rfid_uid'] ?? ''));
         $due_date = $_POST['due_date'] ?? date('Y-m-d H:i:s', strtotime('+14 days'));
+
+        if (!in_array($borrower_type, ['student', 'faculty'], true) || $borrower_ref_id === '') {
+            $_SESSION['flash_error'] = 'Please enter and look up a valid student or faculty borrower.';
+            redirect(BASE_URL . '/?url=borrow/index');
+        }
+
+        if ($rfid === '') {
+            $_SESSION['flash_error'] = 'Please scan or enter a valid book RFID.';
+            redirect(BASE_URL . '/?url=borrow/index');
+        }
 
         $book = (new Book_model())->findByRfid($rfid);
         if (!$book) {
@@ -74,6 +84,11 @@ class Borrow extends Controller
             $phone = $u['mobile'] ?? null;
         }
 
+        if (!$u) {
+            $_SESSION['flash_error'] = 'Borrower not found. Check the student or faculty ID/email.';
+            redirect(BASE_URL . '/?url=borrow/index');
+        }
+
         $borrowModel = new Borrow_model();
         $txId = $borrowModel->createTransaction([
             'borrower_type'=>$borrower_type,
@@ -109,7 +124,7 @@ class Borrow extends Controller
 
         (new Notification_model())->create([
             'user_type' => $borrower_type,
-            'user_ref_id' => is_numeric($borrower_ref_id) ? intval($borrower_ref_id) : 0,
+            'user_ref_id' => (int) $u['id'],
             'title' => 'Borrow Confirmed',
             'message' => "You have borrowed {$book['title']} and it is due on {$due_date}.",
             'type' => 'borrow'

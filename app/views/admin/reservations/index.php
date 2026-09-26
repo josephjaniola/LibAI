@@ -1,10 +1,10 @@
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="reservations-page page-tool-header d-flex justify-content-between align-items-center mb-3">
   <h3>Reservations</h3>
   <a href="?url=reservation/createForm" class="btn btn-primary">New Reservation</a>
 </div>
 <?php if (!empty($_SESSION['flash'])): ?><div class="alert alert-success"><?php echo e($_SESSION['flash']); unset($_SESSION['flash']); ?></div><?php endif; ?>
 <?php if (!empty($_SESSION['flash_error'])): ?><div class="alert alert-danger"><?php echo e($_SESSION['flash_error']); unset($_SESSION['flash_error']); ?></div><?php endif; ?>
-<div class="table-responsive-sm">
+<div class="reservations-table table-responsive-sm">
 <table class="table table-striped">
   <thead><tr><th>Book</th><th>Borrower</th><th>Type</th><th>Status</th><th>Reserved At</th><th>Expires</th><th>Actions</th></tr></thead>
   <tbody>

@@ -4,6 +4,9 @@ class Recommendation_model extends Model
     public function recommendForUser($user_type, $user_ref_id, $limit = 6)
     {
         $limit = max(1, (int) $limit);
+        if (empty($this->getBorrowHistoryForUser($user_type, $user_ref_id, 1))) {
+            return [];
+        }
 
         $aiBooks = $this->getAiRecommendations($user_type, $user_ref_id, $limit);
         if (!empty($aiBooks)) {
@@ -30,7 +33,7 @@ class Recommendation_model extends Model
         $prompt = [
             [
                 'role' => 'system',
-                'content' => 'You are a helpful librarian AI that recommends books for library users. Return valid JSON only. Format: {"recommended_ids":[id1,id2,...]}. Select only book IDs that exist in the given catalog. Keep recommendations relevant to the user profile and reading history.'
+                'content' => 'You are a helpful librarian AI that recommends books for library users. Return valid JSON only. Format: {"recommended_ids":[id1,id2,...]}. Select only book IDs that exist in the given catalog. Keep recommendations relevant to the user profile and reading history, and prioritize books with higher borrow_count when they fit the user interest.'
             ],
             [
                 'role' => 'user',
@@ -94,7 +97,7 @@ class Recommendation_model extends Model
         }
 
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $sql = 'SELECT b.*, c.name AS category_name, p.name AS publisher_name FROM books b LEFT JOIN categories c ON b.category_id = c.id LEFT JOIN publishers p ON b.publisher_id = p.id WHERE b.id IN (' . $placeholders . ') AND b.status = "available" ORDER BY b.created_at DESC';
+        $sql = 'SELECT b.*, c.name AS category_name, p.name AS publisher_name, COALESCE(pop.borrow_count, 0) AS borrow_count FROM books b LEFT JOIN categories c ON b.category_id = c.id LEFT JOIN publishers p ON b.publisher_id = p.id LEFT JOIN (SELECT book_id, COUNT(*) AS borrow_count FROM borrow_transactions GROUP BY book_id) pop ON pop.book_id = b.id WHERE b.id IN (' . $placeholders . ') AND b.status <> "archived" ORDER BY borrow_count DESC, b.created_at DESC';
         $stmt = $this->db->prepare($sql);
         $stmt->execute($ids);
         $books = $stmt->fetchAll();
@@ -114,15 +117,16 @@ class Recommendation_model extends Model
 
     private function getRuleBasedRecommendations($user_type, $user_ref_id, $limit)
     {
+        $borrowerRefId = $this->getBorrowerReference($user_type, $user_ref_id);
         $sql = 'SELECT b.category_id, COUNT(*) as cnt FROM borrow_transactions bt JOIN books b ON bt.book_id=b.id WHERE bt.borrower_type = :ut AND bt.borrower_ref_id = :uid GROUP BY b.category_id ORDER BY cnt DESC';
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([':ut' => $user_type, ':uid' => $user_ref_id]);
+        $stmt->execute([':ut' => $user_type, ':uid' => $borrowerRefId]);
         $cats = $stmt->fetchAll();
 
         $catIds = array_column($cats, 'category_id');
         if (count($catIds) > 0) {
             $placeholders = implode(',', array_fill(0, count($catIds), '?'));
-            $sql2 = "SELECT b.*, c.name AS category_name, p.name AS publisher_name FROM books b LEFT JOIN categories c ON b.category_id = c.id LEFT JOIN publishers p ON b.publisher_id = p.id WHERE b.category_id IN ($placeholders) AND b.status = 'available' ORDER BY b.created_at DESC LIMIT " . (int) $limit;
+            $sql2 = "SELECT b.*, c.name AS category_name, p.name AS publisher_name, COALESCE(pop.borrow_count, 0) AS borrow_count FROM books b LEFT JOIN categories c ON b.category_id = c.id LEFT JOIN publishers p ON b.publisher_id = p.id LEFT JOIN (SELECT book_id, COUNT(*) AS borrow_count FROM borrow_transactions GROUP BY book_id) pop ON pop.book_id = b.id WHERE b.category_id IN ($placeholders) AND b.status <> 'archived' ORDER BY borrow_count DESC, b.created_at DESC LIMIT " . (int) $limit;
             $stmt2 = $this->db->prepare($sql2);
             $stmt2->execute($catIds);
             $results = $stmt2->fetchAll();
@@ -131,19 +135,57 @@ class Recommendation_model extends Model
             }
         }
 
-        $courseOrDepartment = $this->getUserCourseOrDepartment($user_type, $user_ref_id);
-        if ($courseOrDepartment) {
-            $sql4 = 'SELECT b.*, c.name AS category_name, p.name AS publisher_name FROM books b LEFT JOIN categories c ON b.category_id = c.id LEFT JOIN publishers p ON b.publisher_id = p.id WHERE c.name = :course AND b.status = "available" ORDER BY b.created_at DESC LIMIT ' . (int) $limit;
+        $profile = $this->getUserProfile($user_type, $user_ref_id);
+        $interestTerms = [];
+        foreach ([$profile['course'] ?? '', $profile['department'] ?? '', $profile['position'] ?? ''] as $value) {
+            $value = trim((string) $value);
+            if ($value !== '') {
+                $interestTerms[] = $value;
+            }
+        }
+
+        if (!empty($interestTerms)) {
+            $conditions = [];
+            $params = [];
+            foreach ($interestTerms as $index => $term) {
+                $fields = ['b.title', 'b.subtitle', 'b.description', 'b.keywords', 'c.name'];
+                $fieldConditions = [];
+                foreach ($fields as $fieldIndex => $field) {
+                    $placeholder = ':interest' . $index . '_' . $fieldIndex;
+                    $fieldConditions[] = $field . ' LIKE ' . $placeholder;
+                    $params[$placeholder] = '%' . $term . '%';
+                }
+                $conditions[] = '(' . implode(' OR ', $fieldConditions) . ')';
+            }
+
+            $sql4 = 'SELECT b.*, c.name AS category_name, p.name AS publisher_name, COALESCE(pop.borrow_count, 0) AS borrow_count FROM books b LEFT JOIN categories c ON b.category_id = c.id LEFT JOIN publishers p ON b.publisher_id = p.id LEFT JOIN (SELECT book_id, COUNT(*) AS borrow_count FROM borrow_transactions GROUP BY book_id) pop ON pop.book_id = b.id WHERE b.status <> "archived" AND (' . implode(' OR ', $conditions) . ') ORDER BY borrow_count DESC, b.created_at DESC LIMIT ' . (int) $limit;
             $stmt4 = $this->db->prepare($sql4);
-            $stmt4->execute([':course' => $courseOrDepartment]);
+            $stmt4->execute($params);
             $results = $stmt4->fetchAll();
             if (!empty($results)) {
                 return $results;
             }
         }
 
-        $sql3 = 'SELECT b.*, c.name AS category_name, p.name AS publisher_name FROM borrow_transactions bt JOIN books b ON bt.book_id = b.id LEFT JOIN categories c ON b.category_id = c.id LEFT JOIN publishers p ON b.publisher_id = p.id GROUP BY bt.book_id ORDER BY COUNT(bt.id) DESC LIMIT ' . (int) $limit;
+        $sql3 = 'SELECT b.*, c.name AS category_name, p.name AS publisher_name, COUNT(bt.id) AS borrow_count FROM borrow_transactions bt JOIN books b ON bt.book_id = b.id LEFT JOIN categories c ON b.category_id = c.id LEFT JOIN publishers p ON b.publisher_id = p.id WHERE b.status <> "archived" GROUP BY b.id ORDER BY borrow_count DESC, b.created_at DESC LIMIT ' . (int) $limit;
         return $this->db->query($sql3)->fetchAll();
+    }
+
+    private function getBorrowerReference($user_type, $user_ref_id)
+    {
+        if ($user_type === 'student') {
+            $stmt = $this->db->prepare('SELECT student_id FROM students WHERE id = :id LIMIT 1');
+            $stmt->execute([':id' => $user_ref_id]);
+            return $stmt->fetchColumn() ?: $user_ref_id;
+        }
+
+        if ($user_type === 'faculty') {
+            $stmt = $this->db->prepare('SELECT faculty_id FROM faculty WHERE id = :id LIMIT 1');
+            $stmt->execute([':id' => $user_ref_id]);
+            return $stmt->fetchColumn() ?: $user_ref_id;
+        }
+
+        return $user_ref_id;
     }
 
     private function getUserProfile($user_type, $user_ref_id)
@@ -190,13 +232,13 @@ class Recommendation_model extends Model
 
         $sql = 'SELECT b.id, b.title, b.description, c.name AS category_name FROM borrow_transactions bt JOIN books b ON bt.book_id = b.id LEFT JOIN categories c ON b.category_id = c.id WHERE bt.borrower_type = :ut AND bt.borrower_ref_id = :uid ORDER BY bt.borrow_date DESC LIMIT ' . (int) $limit;
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([':ut' => $user_type, ':uid' => $user_ref_id]);
+        $stmt->execute([':ut' => $user_type, ':uid' => $this->getBorrowerReference($user_type, $user_ref_id)]);
         return $stmt->fetchAll();
     }
 
     private function getCatalogForAiPrompt($limit)
     {
-        $sql = 'SELECT b.id, b.title, b.description, b.keywords, c.name AS category_name FROM books b LEFT JOIN categories c ON b.category_id = c.id WHERE b.status = "available" ORDER BY b.created_at DESC LIMIT ' . (int) $limit;
+        $sql = 'SELECT b.id, b.title, b.description, b.keywords, c.name AS category_name, COALESCE(pop.borrow_count, 0) AS borrow_count FROM books b LEFT JOIN categories c ON b.category_id = c.id LEFT JOIN (SELECT book_id, COUNT(*) AS borrow_count FROM borrow_transactions GROUP BY book_id) pop ON pop.book_id = b.id WHERE b.status <> "archived" ORDER BY borrow_count DESC, b.created_at DESC LIMIT ' . (int) $limit;
         return $this->db->query($sql)->fetchAll();
     }
 

@@ -8,13 +8,13 @@ class Mailer
     public function __construct()
     {
         if (class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
-            $this->mail = new PHPMailer(true);
+            $this->mail = new \PHPMailer\PHPMailer\PHPMailer(true);
             $this->mail->isSMTP();
             $this->mail->Host = MAIL_HOST;
             $this->mail->SMTPAuth = true;
             $this->mail->Username = MAIL_USERNAME;
             $this->mail->Password = MAIL_PASSWORD;
-            $this->mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $this->mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
             $this->mail->Port = MAIL_PORT;
             $this->mail->setFrom(MAIL_FROM_ADDRESS, MAIL_FROM_NAME);
             return;

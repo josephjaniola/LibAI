@@ -43,7 +43,7 @@ class Reservation extends Controller
         $borrower_ref_id = trim($_POST['borrower_ref_id'] ?? '');
         $book_id = intval($_POST['book_id'] ?? 0);
 
-        if (!$borrower_type || !$borrower_ref_id || !$book_id) {
+        if (!in_array($borrower_type, ['student', 'faculty'], true) || !$borrower_ref_id || !$book_id) {
             $_SESSION['flash_error'] = 'Please provide borrower type, borrower reference, and book.';
             redirect(BASE_URL . '/?url=reservation/createForm');
         }
@@ -68,6 +68,11 @@ class Reservation extends Controller
             $u = (new Faculty_model())->findByFacultyIdOrEmail($borrower_ref_id);
             $name = $u ? ($u['firstname'].' '.$u['lastname']) : $borrower_ref_id;
             $email = $u['email'] ?? null;
+        }
+
+        if (!$u) {
+            $_SESSION['flash_error'] = 'Borrower not found. Check the student or faculty ID/email.';
+            redirect(BASE_URL . '/?url=reservation/createForm');
         }
 
         $reservationId = (new Reservation_model())->create([
@@ -97,7 +102,7 @@ class Reservation extends Controller
 
         (new Notification_model())->create([
             'user_type' => $borrower_type,
-            'user_ref_id' => is_numeric($borrower_ref_id) ? intval($borrower_ref_id) : 0,
+            'user_ref_id' => (int) $u['id'],
             'title' => 'Reservation Created',
             'message' => "Your reservation for {$book['title']} is pending and will expire on " . date('Y-m-d H:i:s', strtotime('+3 days')) . ".",
             'type' => 'reservation'

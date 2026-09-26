@@ -134,6 +134,7 @@ CREATE TABLE IF NOT EXISTS borrow_transactions (
   rfid_uid VARCHAR(100) DEFAULT NULL,
   borrow_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   due_date DATETIME NOT NULL,
+  due_notice_sent_at DATETIME DEFAULT NULL,
   return_date DATETIME DEFAULT NULL,
   status ENUM('borrowed','returned','overdue','lost','damaged') DEFAULT 'borrowed',
   remarks TEXT DEFAULT NULL,
@@ -269,6 +270,9 @@ ALTER TABLE faculty
   ADD COLUMN IF NOT EXISTS profile_picture VARCHAR(255) DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS last_login_at DATETIME DEFAULT NULL;
 
+ALTER TABLE password_resets
+  ADD COLUMN IF NOT EXISTS code_hash VARCHAR(255) DEFAULT NULL;
+
 -- Indexes to speed common queries
 CREATE INDEX idx_books_rfid ON books(rfid_uid);
 CREATE INDEX idx_borrow_ref ON borrow_transactions(borrower_type, borrower_ref_id);
@@ -287,7 +291,7 @@ INSERT INTO admins (username, email, password, fullname) VALUES
   ('admin', 'admin@cec.edu.ph', '$2y$10$XVxsp9k.vxQ5T2f0BKbki.in0m2zoIkS7dbyBQefq./ElMmixE2P2', 'System Administrator');
 
 INSERT INTO librarians (librarian_id, username, email, password, firstname, lastname, mobile) VALUES
-  ('LIB001', 'librarian', 'librarian@cec.edu.ph', '$2y$10$y3guFrRlcokBLtZ.CNmVvuD3Q5q5nG6KU8EZtNxwpY5jE5zeeUJFq', 'Librarian', 'User', '09171234567');
+  ('LIB001', 'librarian', 'librarian@cec.edu.ph', '$2y$10$fTZCPOPyb5Wn32MdIMDXuegez4Al2MHK/wOV50HcmDWkqicQ6Z6da', 'Librarian', 'User', '09171234567');
 
 INSERT INTO students (student_id, firstname, middlename, lastname, course, year_level, email, mobile, password) VALUES
   ('S1001', 'John', 'A.', 'Doe', 'BS Computer Science', '2', 'john.doe@student.edu.ph', '09171234568', '$2y$10$EgJnrScF2qvaUzejVBwx/.VgY.LcsCEmw4vFXw4tY9tYZWMTNHCfa');

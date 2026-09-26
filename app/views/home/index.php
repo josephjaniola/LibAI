@@ -9,11 +9,14 @@
                 <?php echo $role === 'admin' ? 'Admin Dashboard' : ($role === 'librarian' ? 'Librarian Dashboard' : ($role === 'student' ? 'Student Dashboard' : 'Faculty Dashboard')); ?>
             </h1>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="?url=profile" class="btn btn-outline-primary">Profile</a>
-            <a href="?url=auth/logout" class="btn btn-secondary">Logout</a>
-        </div>
     </div>
+
+    <?php if (!empty($_SESSION['flash'])): ?>
+        <div class="alert alert-success" role="status"><?php echo e($_SESSION['flash']); unset($_SESSION['flash']); ?></div>
+    <?php endif; ?>
+    <?php if (!empty($_SESSION['flash_error'])): ?>
+        <div class="alert alert-danger" role="alert"><?php echo e($_SESSION['flash_error']); unset($_SESSION['flash_error']); ?></div>
+    <?php endif; ?>
 
     <?php if (in_array($role, ['student', 'faculty'], true) && (($stats['due_soon'] ?? 0) > 0 || ($stats['overdue_books'] ?? 0) > 0)): ?>
         <div class="alert <?php echo ($stats['overdue_books'] ?? 0) > 0 ? 'alert-danger' : 'alert-warning'; ?> d-flex justify-content-between align-items-center gap-3" role="alert">
@@ -23,7 +26,7 @@
                     <?php if (($stats['overdue_books'] ?? 0) > 0): ?>
                         You have <?php echo (int) $stats['overdue_books']; ?> overdue book<?php echo $stats['overdue_books'] == 1 ? '' : 's'; ?>. Please return it as soon as possible.
                     <?php else: ?>
-                        You have <?php echo (int) $stats['due_soon']; ?> book<?php echo $stats['due_soon'] == 1 ? '' : 's'; ?> due within 3 days.
+                        You have <?php echo (int) $stats['due_soon']; ?> book<?php echo $stats['due_soon'] == 1 ? '' : 's'; ?> due for return now.
                     <?php endif; ?>
                 </div>
             </div>
@@ -86,9 +89,9 @@
                 <p class="metric-label">Books currently checked out.</p>
             </div>
             <div class="dashboard-card">
-                <div class="card-header"><span class="label">Due Soon</span></div>
+                <div class="card-header"><span class="label">Due Now</span></div>
                 <p class="metric-value"><?php echo e($stats['due_soon'] ?? 0); ?></p>
-                <p class="metric-label">Returns due within 3 days.</p>
+                <p class="metric-label">Returns at or past the librarian-set due time.</p>
             </div>
             <div class="dashboard-card">
                 <div class="card-header"><span class="label">Reservations</span></div>
@@ -141,35 +144,54 @@
         </div>
     <?php endif; ?>
 
-    <?php if (!empty($recommendations)): ?>
+    <?php if (in_array($role, ['student', 'faculty'], true)): ?>
         <div class="mt-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h2 class="h5 mb-0">AI Recommendations</h2>
-                <span class="text-muted small">Smart suggestions based on your activity</span>
+                <span class="text-muted small d-none d-md-inline">Smart suggestions based on your activity</span>
             </div>
-            <div class="row g-3">
-                <?php foreach ($recommendations as $book): ?>
-                    <div class="col-md-6 col-xl-4">
-                        <div class="card h-100 shadow-sm border-0">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <div>
-                                        <h3 class="h6 mb-1"><?php echo e($book['title'] ?? 'Untitled Book'); ?></h3>
-                                        <p class="text-muted small mb-2"><?php echo e($book['category_name'] ?? 'General'); ?></p>
+            <?php if (!empty($recommendations)): ?>
+                <div class="row g-3">
+                    <?php foreach ($recommendations as $book): ?>
+                        <div class="col-md-6 col-xl-4">
+                            <div class="card recommendation-card h-100 shadow-sm border-0">
+                                <?php if (!empty($book['cover_image'])): ?>
+                                    <img src="<?php echo e(BASE_URL . '/' . $book['cover_image']); ?>" class="recommendation-cover" alt="<?php echo e($book['title'] ?? 'Book cover'); ?> cover">
+                                <?php else: ?>
+                                    <div class="recommendation-cover recommendation-cover-empty">No cover image</div>
+                                <?php endif; ?>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <h3 class="h6 mb-1"><?php echo e($book['title'] ?? 'Untitled Book'); ?></h3>
+                                            <p class="text-muted small mb-2"><?php echo e($book['category_name'] ?? 'General'); ?></p>
+                                        </div>
+                                        <span class="badge bg-primary-subtle text-primary"><?php echo !empty($book['status']) ? e($book['status']) : 'available'; ?></span>
                                     </div>
-                                    <span class="badge bg-primary-subtle text-primary"><?php echo !empty($book['status']) ? e($book['status']) : 'available'; ?></span>
-                                </div>
-                                <p class="mb-2 small text-secondary"><?php echo e(substr(strip_tags($book['description'] ?? ''), 0, 140)); ?><?php echo !empty($book['description']) && strlen(strip_tags($book['description'])) > 140 ? '...' : ''; ?></p>
-                                <div class="d-flex gap-2 align-items-center text-muted small">
-                                    <span><?php echo e($book['publisher_name'] ?? 'Unknown publisher'); ?></span>
-                                    <span>•</span>
-                                    <span><?php echo e($book['year_published'] ?? 'N/A'); ?></span>
+                                    <p class="mb-2 small text-secondary"><?php echo e(substr(strip_tags($book['description'] ?? ''), 0, 140)); ?><?php echo !empty($book['description']) && strlen(strip_tags($book['description'])) > 140 ? '...' : ''; ?></p>
+                                    <div class="d-flex gap-2 align-items-center text-muted small">
+                                        <span><?php echo e($book['publisher_name'] ?? 'Unknown publisher'); ?></span>
+                                        <span>•</span>
+                                        <span><?php echo e($book['year_published'] ?? 'N/A'); ?></span>
+                                        <span>•</span>
+                                        <span>Borrowed <?php echo (int) ($book['borrow_count'] ?? 0); ?> times</span>
+                                    </div>
+                                    <a href="?url=book/index" class="btn btn-sm btn-outline-primary mt-3">
+                                        <i class="fa-solid fa-arrow-right me-1" aria-hidden="true"></i>
+                                        Go to Catalog
+                                    </a>
                                 </div>
                             </div>
                         </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center text-muted py-4">
+                        No AI recommendations are available yet. Borrow books or explore the catalog to get personalized suggestions.
                     </div>
-                <?php endforeach; ?>
-            </div>
+                </div>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 </div>

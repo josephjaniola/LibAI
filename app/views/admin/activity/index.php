@@ -1,8 +1,8 @@
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="page-tool-header d-flex justify-content-between align-items-center mb-3">
   <h3>Activity Logs</h3>
   <small class="text-muted">Showing latest 200 entries</small>
 </div>
-<table class="table table-sm table-striped">
+<div class="admin-list-table table-responsive"><table class="table table-sm table-striped mb-0">
   <thead><tr><th>When</th><th>User</th><th>Action</th><th>Detail</th><th>IP</th></tr></thead>
   <tbody>
   <?php foreach ($logs as $l): ?>
@@ -16,3 +16,4 @@
   <?php endforeach; ?>
   </tbody>
 </table>
+</div>

@@ -23,6 +23,13 @@ class Faculty_model extends Model
         return $stmt->fetch();
     }
 
+    public function findByEmail($email)
+    {
+        $stmt = $this->db->prepare('SELECT * FROM faculty WHERE LOWER(TRIM(email)) = :email LIMIT 1');
+        $stmt->execute([':email' => strtolower(trim((string) $email))]);
+        return $stmt->fetch();
+    }
+
     public function existsByFacultyIdOrEmail($faculty_id, $email)
     {
         $sql = 'SELECT COUNT(*) as cnt FROM faculty WHERE faculty_id = :fid OR email = :em';

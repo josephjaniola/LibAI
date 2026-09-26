@@ -42,4 +42,29 @@ class Controller
 
         return ['ok' => true, 'path' => 'uploads/profiles/' . $name];
     }
+
+    protected function deleteProfilePicture($path)
+    {
+        $prefix = 'uploads/profiles/';
+        if (!is_string($path) || strpos($path, $prefix) !== 0) {
+            return false;
+        }
+
+        $filename = substr($path, strlen($prefix));
+        if ($filename === '' || basename($filename) !== $filename) {
+            return false;
+        }
+
+        $profilesDirectory = realpath(__DIR__ . '/../../uploads/profiles');
+        if ($profilesDirectory === false) {
+            return false;
+        }
+
+        $filePath = realpath($profilesDirectory . DIRECTORY_SEPARATOR . $filename);
+        if ($filePath === false || dirname($filePath) !== $profilesDirectory || !is_file($filePath)) {
+            return false;
+        }
+
+        return unlink($filePath);
+    }
 }

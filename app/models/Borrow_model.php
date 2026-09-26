@@ -30,7 +30,7 @@ class Borrow_model extends Model
             return null;
         }
 
-        $stmt = $this->db->prepare('SELECT * FROM borrow_transactions WHERE rfid_uid = :rfid AND status = "borrowed" LIMIT 1');
+        $stmt = $this->db->prepare('SELECT * FROM borrow_transactions WHERE rfid_uid = :rfid AND status IN ("borrowed", "overdue") LIMIT 1');
         $stmt->execute([':rfid' => $rfid]);
         return $stmt->fetch();
     }
@@ -41,11 +41,31 @@ class Borrow_model extends Model
         return $stmt->execute([':rd' => $return_date ?? date('Y-m-d H:i:s'), ':id' => $id]);
     }
 
-    public function getOverdueBorrowed()
+    public function getDueOrOverdueBorrowed()
     {
-        $stmt = $this->db->prepare('SELECT * FROM borrow_transactions WHERE status = "borrowed" AND due_date < NOW()');
+        $stmt = $this->db->prepare('SELECT * FROM borrow_transactions WHERE status = "borrowed" AND due_date <= NOW()');
         $stmt->execute();
         return $stmt->fetchAll();
+    }
+
+    public function getDueOrOverdueWithBooks()
+    {
+        $stmt = $this->db->prepare('SELECT bt.*, b.title AS book_title FROM borrow_transactions bt JOIN books b ON b.id = bt.book_id WHERE bt.status = "overdue" OR (bt.status = "borrowed" AND bt.due_date <= NOW()) ORDER BY bt.due_date ASC');
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function getDueBorrowedWithoutNotice()
+    {
+        $stmt = $this->db->prepare('SELECT * FROM borrow_transactions WHERE status IN ("borrowed", "overdue") AND due_date <= NOW() AND due_notice_sent_at IS NULL ORDER BY due_date ASC');
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function markDueNoticeSent($id)
+    {
+        $stmt = $this->db->prepare('UPDATE borrow_transactions SET due_notice_sent_at = NOW() WHERE id = :id AND due_notice_sent_at IS NULL');
+        return $stmt->execute([':id' => $id]);
     }
 
     public function markOverdue($id)

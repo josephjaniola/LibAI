@@ -1,9 +1,9 @@
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="page-tool-header d-flex justify-content-between align-items-center mb-3">
   <h3>Publishers</h3>
   <a href="?url=adminpublishers/add" class="btn btn-primary">Add Publisher</a>
 </div>
 <?php if (!empty($_SESSION['flash'])): ?><div class="alert alert-success"><?php echo e($_SESSION['flash']); unset($_SESSION['flash']); ?></div><?php endif; ?>
-<table class="table table-striped">
+<div class="admin-list-table table-responsive"><table class="table table-striped mb-0">
   <thead><tr><th>Name</th><th style="width:150px">Actions</th></tr></thead>
   <tbody>
   <?php foreach ($publishers as $p): ?>
@@ -21,3 +21,4 @@
   <?php endforeach; ?>
   </tbody>
 </table>
+</div>

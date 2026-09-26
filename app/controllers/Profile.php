@@ -69,12 +69,22 @@ class Profile extends Controller
         $role = $_SESSION['user_role'];
         $id = $_SESSION['user_id'];
         $model = $this->getModelForRole($role);
+        $user = $model->getById($id);
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $csrf = $_POST['_csrf'] ?? '';
             if (!verify_csrf_token($csrf)) {
                 $this->view('profile/edit', ['error' => 'Invalid CSRF token.']);
                 return;
+            }
+
+            $newPassword = trim((string) ($_POST['password'] ?? ''));
+            if ($newPassword !== '') {
+                $currentPassword = (string) ($_POST['current_password'] ?? '');
+                if ($currentPassword === '' || empty($user['password']) || !password_verify($currentPassword, $user['password'])) {
+                    $this->view('profile/edit', ['error' => 'Current password is incorrect. Your password was not changed.', 'user' => $user, 'role' => $role]);
+                    return;
+                }
             }
 
             $data = [];
@@ -89,16 +99,7 @@ class Profile extends Controller
             if ($role === 'faculty' && !empty($_POST['position'])) $data['position'] = $_POST['position'];
             if (!empty($_POST['email'])) $data['email'] = $_POST['email'];
             if (!empty($_POST['mobile'])) $data['mobile'] = $_POST['mobile'];
-            if (!empty($_POST['password'])) $data['password'] = password_hash($_POST['password'], PASSWORD_DEFAULT);
-
-            if (!empty($_FILES['profile_picture']['name'])) {
-                $upload = $this->handleUpload($_FILES['profile_picture']);
-                if (!$upload['ok']) {
-                    $this->view('profile/edit', ['error' => $upload['error']]);
-                    return;
-                }
-                $data['profile_picture'] = $upload['path'];
-            }
+            if ($newPassword !== '') $data['password'] = password_hash($newPassword, PASSWORD_DEFAULT);
 
             $ok = $model->updateById($id, $data);
             if ($ok) {
@@ -110,7 +111,6 @@ class Profile extends Controller
             return;
         }
 
-        $user = $model->getById($id);
         $this->view('profile/edit', ['user' => $user, 'role' => $role]);
     }
 

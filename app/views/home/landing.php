@@ -211,38 +211,38 @@ $renderHeroVideo = function ($videos) {
   <div class="container">
     <div class="section-heading">
       <p class="eyebrow">About</p>
-      <h2 class="h3 mb-3">How LibAI helps Cebu Eastern College</h2>
-      <p class="text-muted">A modern library system that replaces manual records with real-time inventory, mobile access, and smart workflows.</p>
+      <h2 class="h3 mb-3">One connected system for the whole library</h2>
+      <p class="text-muted">LibAI manages the complete library journey: discover a book, reserve it, borrow it with RFID, return it, and receive timely reminders before or after the librarian-set due date.</p>
     </div>
     <div class="row gy-4">
       <div class="col-lg-6">
         <div class="card p-4 h-100">
           <h5>For students</h5>
-          <p>Search and reserve books, track borrow history, and receive return reminders on any device.</p>
+          <p>Browse the catalog, reserve available books, view borrowing history, manage your profile, and receive in-app and Gmail due-date reminders.</p>
         </div>
       </div>
       <div class="col-lg-6">
         <div class="card p-4 h-100">
           <h5>For faculty</h5>
-          <p>Reserve books, follow pickup updates, manage borrowed books, and track due dates.</p>
+          <p>Find research and teaching materials, reserve books, follow pickup updates, manage current loans, and receive return notifications.</p>
         </div>
       </div>
       <div class="col-lg-6">
         <div class="card p-4 h-100">
           <h5>For librarians</h5>
-          <p>Process loans quickly, approve reservations, track inventory, and manage RFID-enabled transactions.</p>
+          <p>Verify borrowers, scan RFID tags to lend and return books, set exact return dates and times, approve reservations, and manage circulation.</p>
         </div>
       </div>
       <div class="col-lg-6">
         <div class="card p-4 h-100">
           <h5>For administrators</h5>
-          <p>Generate reports, monitor library performance, and access accurate usage analytics.</p>
+          <p>Manage books, categories, authors, publishers, librarians, members, announcements, activity logs, reports, and overdue records.</p>
         </div>
       </div>
       <div class="col-lg-6">
         <div class="card p-4 h-100">
-          <h5>AI-powered support</h5>
-          <p>Get book suggestions based on program, interests, and borrowing behavior to support learning.</p>
+          <h5>Personalized recommendations</h5>
+          <p>Students and faculty see recommendations based on their course or department, interests, borrowing history, and the books most often borrowed.</p>
         </div>
       </div>
     </div>

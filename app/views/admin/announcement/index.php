@@ -59,10 +59,10 @@
           </div>
 
           <div class="alert alert-light border mb-3">
-            This announcement will automatically disappear after the time you set and then return the library gallery.
+            This announcement will automatically disappear after the time you set, return the library gallery, and send an email notification to all students and faculty with an email address.
           </div>
 
-          <button type="submit" class="btn btn-primary">Publish to Homepage</button>
+          <button type="submit" class="btn btn-primary">Publish and Notify Students/Faculty</button>
         </form>
       </div>
     </div>

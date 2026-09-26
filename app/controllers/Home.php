@@ -53,7 +53,7 @@ class Home extends Controller
             $stmt->execute([':type' => $borrowerType, ':uid' => $borrowerRefId]);
             $stats['borrowed_books'] = $stmt->fetchColumn();
 
-            $stmt = $db->prepare('SELECT COUNT(*) FROM borrow_transactions WHERE borrower_type = :type AND borrower_ref_id = :uid AND status = "borrowed" AND due_date <= DATE_ADD(NOW(), INTERVAL 3 DAY)');
+            $stmt = $db->prepare('SELECT COUNT(*) FROM borrow_transactions WHERE borrower_type = :type AND borrower_ref_id = :uid AND status = "borrowed" AND due_date <= NOW()');
             $stmt->execute([':type' => $borrowerType, ':uid' => $borrowerRefId]);
             $stats['due_soon'] = $stmt->fetchColumn();
 

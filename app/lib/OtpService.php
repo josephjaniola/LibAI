@@ -13,6 +13,15 @@ class OtpService
 
     public static function sendCodeToPhone($phone, $code)
     {
+        $result = self::sendMessageToPhone($phone, 'Your LibAI verification code is: ' . $code);
+        if ($result['ok']) {
+            $result['message'] = 'OTP sent successfully.';
+        }
+        return $result;
+    }
+
+    public static function sendMessageToPhone($phone, $message)
+    {
         $phone = normalize_phone_number($phone);
         if ($phone === '' || !is_valid_phone_number($phone)) {
             return ['ok' => false, 'message' => 'Please enter a valid phone number in international format.'];
@@ -26,7 +35,7 @@ class OtpService
             $payload = [
                 'To' => $phone,
                 'From' => $from,
-                'Body' => 'Your LibAI verification code is: ' . $code,
+                'Body' => (string) $message,
             ];
 
             $ch = curl_init('https://api.twilio.com/2010-04-01/Accounts/' . $sid . '/Messages.json');
@@ -44,7 +53,7 @@ class OtpService
             curl_close($ch);
 
             if ($httpCode >= 200 && $httpCode < 300) {
-                return ['ok' => true, 'message' => 'OTP sent successfully.'];
+                return ['ok' => true, 'message' => 'SMS sent successfully.'];
             }
 
             return ['ok' => false, 'message' => 'The configured SMS provider rejected the request. Please verify your Twilio account, phone number format, and sender number.'];

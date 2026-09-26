@@ -12,30 +12,35 @@ class Auth extends Controller
                 return $this->view('auth/login', ['error' => 'Invalid CSRF token.']);
             }
 
+            $isPrivilegedUsername = in_array(strtolower($identifier), ['admin', 'librarian'], true);
+            $isGmailAddress = preg_match('/^[^@\s]+@gmail\.com$/i', $identifier) === 1;
+            if (!$isPrivilegedUsername && !$isGmailAddress) {
+                return $this->view('auth/login', [
+                    'error' => 'Please use an email address ending in @gmail.com.',
+                    'identifier' => $identifier,
+                ]);
+            }
+
             $user = null;
             $role = null;
+            $accountFound = false;
 
-            $adminModel = new Admin_model();
-            $user = $adminModel->findByUsernameOrEmail($identifier);
-            if ($user && password_verify($password, $user['password'])) {
-                $role = 'admin';
-            } else {
-                $librarianModel = new Librarian_model();
-                $user = $librarianModel->findByUsernameOrEmail($identifier);
-                if ($user && password_verify($password, $user['password'])) {
-                    $role = 'librarian';
-                } else {
-                    $studentModel = new Student_model();
-                    $user = $studentModel->findByStudentIdOrEmail($identifier);
-                    if ($user && password_verify($password, $user['password'])) {
-                        $role = 'student';
-                    } else {
-                        $facultyModel = new Faculty_model();
-                        $user = $facultyModel->findByFacultyIdOrEmail($identifier);
-                        if ($user && password_verify($password, $user['password'])) {
-                            $role = 'faculty';
-                        }
-                    }
+            $loginLookups = [
+                'admin' => [new Admin_model(), 'findByUsernameOrEmail'],
+                'librarian' => [new Librarian_model(), 'findByUsernameOrEmail'],
+                'student' => [new Student_model(), 'findByStudentIdOrEmail'],
+                'faculty' => [new Faculty_model(), 'findByFacultyIdOrEmail'],
+            ];
+            foreach ($loginLookups as $candidateRole => [$model, $method]) {
+                $candidate = $model->$method($identifier);
+                if (!$candidate) {
+                    continue;
+                }
+                $accountFound = true;
+                if (password_verify($password, $candidate['password'])) {
+                    $user = $candidate;
+                    $role = $candidateRole;
+                    break;
                 }
             }
 
@@ -46,15 +51,56 @@ class Auth extends Controller
                 $_SESSION['user_role'] = $role;
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $this->getUserFullName($user);
+                $_SESSION['user_profile_picture'] = $user['profile_picture'] ?? null;
                 $this->logActivity($role, $user['id'], 'login', 'User logged in');
                 $_SESSION['flash'] = 'Login successful.';
                 redirect(BASE_URL);
             }
 
-            return $this->view('auth/login', ['error' => 'Invalid credentials.']);
+            $error = $isGmailAddress && !$accountFound
+                ? 'No user available with this Gmail address.'
+                : 'Invalid credentials.';
+            return $this->view('auth/login', ['error' => $error, 'identifier' => $identifier]);
         }
 
         $this->view('auth/login', ['title' => 'Login']);
+    }
+
+    public function checkGmail()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed.']);
+            return;
+        }
+
+        if (!verify_csrf_token($_POST['_csrf'] ?? '')) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Invalid request.']);
+            return;
+        }
+
+        $email = strtolower(trim((string) ($_POST['identifier'] ?? '')));
+        if (!preg_match('/^[^@\s]+@gmail\.com$/', $email)) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Please enter a valid Gmail address.']);
+            return;
+        }
+
+        $db = Database::getInstance();
+        $registered = false;
+        foreach (['admins', 'librarians', 'students', 'faculty'] as $table) {
+            $stmt = $db->prepare('SELECT 1 FROM ' . $table . ' WHERE LOWER(TRIM(email)) = :email LIMIT 1');
+            $stmt->execute([':email' => $email]);
+            if ($stmt->fetchColumn()) {
+                $registered = true;
+                break;
+            }
+        }
+
+        echo json_encode(['registered' => $registered]);
     }
 
     public function google()
@@ -149,12 +195,15 @@ class Auth extends Controller
         }
 
         $email = strtolower(trim($profile['email']));
-        $user = $this->findGoogleEligibleUserByEmailOrPhone($email);
+        $user = $this->findGoogleEligibleUserByEmail($email);
         if (!$user) {
+            $_SESSION['google_signup_active'] = true;
             $_SESSION['google_signup_email'] = $email;
             $_SESSION['google_signup_name'] = $profile['name'] ?? '';
+            $_SESSION['google_signup_picture'] = $profile['picture'] ?? null;
+            $_SESSION['google_signup_prompt'] = true;
             $_SESSION['flash_error'] = 'No existing student or faculty account matches that Google email. Please create an account first.';
-            redirect(BASE_URL . '/?url=register');
+            redirect(BASE_URL . '/?url=register&google_signup=1');
         }
 
         $this->completeLogin($user['role'], $user, 'google', [
@@ -166,7 +215,7 @@ class Auth extends Controller
         ]);
 
         $_SESSION['flash'] = 'Login successful.';
-        redirect(BASE_URL);
+        redirect(BASE_URL . '/?url=home');
     }
 
     public function sendOtp()
@@ -302,6 +351,9 @@ class Auth extends Controller
     {
         $table = $this->getUserTableByRole($role);
         $db = Database::getInstance();
+        $profilePicture = $provider === 'google'
+            ? ($info['profile_picture'] ?? ($user['profile_picture'] ?? null))
+            : ($user['profile_picture'] ?? null);
         $sql = 'UPDATE ' . $table . ' SET auth_provider = :auth_provider, provider_user_id = :provider_user_id, verified_email = :verified_email, verified_phone = :verified_phone, auth_name = :auth_name, profile_picture = :profile_picture, last_login_at = NOW() WHERE id = :id';
         $db->prepare($sql)->execute([
             ':auth_provider' => $provider,
@@ -309,13 +361,14 @@ class Auth extends Controller
             ':verified_email' => $info['verified_email'] ?? ($user['email'] ?? null),
             ':verified_phone' => $info['verified_phone'] ?? ($user['mobile'] ?? null),
             ':auth_name' => $info['auth_name'] ?? $this->getUserFullName($user),
-            ':profile_picture' => $info['profile_picture'] ?? ($user['profile_picture'] ?? null),
+            ':profile_picture' => $profilePicture,
             ':id' => $user['id'],
         ]);
 
         $_SESSION['user_role'] = $role;
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_name'] = $this->getUserFullName($user);
+        $_SESSION['user_profile_picture'] = $profilePicture;
         $this->logActivity($role, $user['id'], 'login_' . $provider, 'User logged in with ' . ucfirst($provider));
     }
 
@@ -362,15 +415,15 @@ class Auth extends Controller
         return null;
     }
 
-    private function findGoogleEligibleUserByEmailOrPhone($identifier)
+    private function findGoogleEligibleUserByEmail($email)
     {
-        $identifier = trim((string) $identifier);
-        if ($identifier === '') {
+        $email = strtolower(trim((string) $email));
+        if ($email === '') {
             return null;
         }
 
         foreach (['student' => new Student_model(), 'faculty' => new Faculty_model()] as $role => $model) {
-            $user = $model->findByEmailOrPhone($identifier);
+            $user = $model->findByEmail($email);
             if ($user) {
                 $user['role'] = $role;
                 return $user;
@@ -401,72 +454,60 @@ class Auth extends Controller
     public function forgot()
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $identifier = trim($_POST['identifier'] ?? '');
+            $email = strtolower(trim((string) ($_POST['email'] ?? ($_POST['identifier'] ?? ''))));
             $csrf = $_POST['_csrf'] ?? '';
 
             if (!verify_csrf_token($csrf)) {
                 return $this->view('auth/forgot', ['error' => 'Invalid CSRF token.']);
             }
 
-            $user = null;
-            $role = null;
-            $email = null;
-
-            $adminModel = new Admin_model();
-            $user = $adminModel->findByUsernameOrEmail($identifier);
-            if ($user) {
-                $role = 'admin';
-                $email = $user['email'];
-            } else {
-                $librarianModel = new Librarian_model();
-                $user = $librarianModel->findByUsernameOrEmail($identifier);
-                if ($user) {
-                    $role = 'librarian';
-                    $email = $user['email'];
-                } else {
-                    $studentModel = new Student_model();
-                    $user = $studentModel->findByStudentIdOrEmail($identifier);
-                    if ($user) {
-                        $role = 'student';
-                        $email = $user['email'];
-                    } else {
-                        $facultyModel = new Faculty_model();
-                        $user = $facultyModel->findByFacultyIdOrEmail($identifier);
-                        if ($user) {
-                            $role = 'faculty';
-                            $email = $user['email'];
-                        }
-                    }
-                }
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/@gmail\.com$/i', $email)) {
+                return $this->view('auth/forgot', ['error' => 'Please enter a valid Gmail address.']);
             }
 
-            if (!$user || !$email) {
-                return $this->view('auth/forgot', ['success' => 'If this account exists, a reset link has been sent to the registered email.']);
+            $user = $this->findUserByEmailOrPhone($email);
+            if (!$user) {
+                return $this->view('auth/forgot', ['error' => 'No account was found for that Gmail address.']);
             }
 
-            $token = bin2hex(random_bytes(16));
+            $code = (string) random_int(100000, 999999);
             $expiresAt = date('Y-m-d H:i:s', strtotime('+1 hour'));
             $db = Database::getInstance();
-            $stmt = $db->prepare('INSERT INTO password_resets (user_type, user_ref_id, token, expires_at) VALUES (:user_type, :user_ref_id, :token, :expires_at)');
-            $stmt->execute([
-                ':user_type' => $role,
+            $db->prepare('DELETE FROM password_resets WHERE user_type = :user_type AND user_ref_id = :user_ref_id')->execute([
+                ':user_type' => $user['role'],
                 ':user_ref_id' => $user['id'],
-                ':token' => hash('sha256', $token),
-                ':expires_at' => $expiresAt
             ]);
 
-            $resetUrl = BASE_URL . '/?url=auth/reset/' . $token;
+            $stmt = $db->prepare('INSERT INTO password_resets (user_type, user_ref_id, token, code_hash, expires_at) VALUES (:user_type, :user_ref_id, :token, :code_hash, :expires_at)');
+            $stmt->execute([
+                ':user_type' => $user['role'],
+                ':user_ref_id' => $user['id'],
+                ':token' => hash('sha256', bin2hex(random_bytes(16))),
+                ':code_hash' => password_hash($code, PASSWORD_DEFAULT),
+                ':expires_at' => $expiresAt,
+            ]);
+
             try {
                 $mailer = new Mailer();
-                $subject = APP_NAME . ' Password Reset Request';
-                $body = '<p>Click the link below to reset your password. This link expires in 60 minutes.</p>' .
-                    '<p><a href="' . e($resetUrl) . '">' . e($resetUrl) . '</a></p>';
+                $subject = APP_NAME . ' Verification Code';
+                $body = '<p>Your LibAI password reset code is:</p>' .
+                    '<p style="font-size: 30px; font-weight: 700; letter-spacing: 10px;">' . e($code) . '</p>' .
+                    '<p>This code expires in 60 minutes. If you did not request this, you can ignore this email.</p>';
                 $mailer->send($email, $subject, $body);
             } catch (Exception $ex) {
                 // ignore email failure for security reasons
             }
 
-            return $this->view('auth/forgot', ['success' => 'If this account exists, a reset link has been sent to the registered email.']);
+            $_SESSION['password_reset_user_type'] = $user['role'];
+            $_SESSION['password_reset_user_id'] = (int) $user['id'];
+            $_SESSION['password_reset_email'] = $email;
+
+            return $this->view('auth/reset', [
+                'title' => 'Reset Password',
+                'show_verification' => true,
+                'verification_email' => $email,
+                'success' => 'A 6-digit code has been sent to your email.',
+            ]);
         }
 
         $this->view('auth/forgot', ['title' => 'Forgot Password']);
@@ -474,53 +515,69 @@ class Auth extends Controller
 
     public function reset($token = null)
     {
-        if (!$token) {
-            redirect(BASE_URL . '/?url=auth/forgot');
-        }
-
-        $hashedToken = hash('sha256', $token);
-        $db = Database::getInstance();
-        $stmt = $db->prepare('SELECT * FROM password_resets WHERE token = :token AND expires_at >= NOW() LIMIT 1');
-        $stmt->execute([':token' => $hashedToken]);
-        $reset = $stmt->fetch();
-
-        if (!$reset) {
-            return $this->view('auth/reset', ['error' => 'Invalid or expired reset link.']);
-        }
+        $role = $_SESSION['password_reset_user_type'] ?? null;
+        $userRefId = (int) ($_SESSION['password_reset_user_id'] ?? 0);
+        $email = strtolower(trim((string) ($_SESSION['password_reset_email'] ?? '')));
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $email = strtolower(trim((string) ($_POST['verification_email'] ?? ($_POST['email'] ?? $email))));
+            $code = preg_replace('/\D+/', '', trim((string) ($_POST['code'] ?? '')));
             $password = $_POST['password'] ?? '';
             $confirm = $_POST['confirm_password'] ?? '';
             $csrf = $_POST['_csrf'] ?? '';
 
             if (!verify_csrf_token($csrf)) {
-                return $this->view('auth/reset', ['error' => 'Invalid CSRF token.', 'token' => $token]);
+                return $this->view('auth/reset', ['error' => 'Invalid CSRF token.', 'show_verification' => true, 'verification_email' => $email]);
             }
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/@gmail\.com$/i', $email)) {
+                return $this->view('auth/reset', ['error' => 'Please enter a valid Gmail address.', 'show_verification' => true, 'verification_email' => $email]);
+            }
+
+            $user = $this->findUserByEmailOrPhone($email);
+            if (!$user) {
+                return $this->view('auth/reset', ['error' => 'No account was found for that Gmail address.', 'show_verification' => true, 'verification_email' => $email]);
+            }
+
+            $db = Database::getInstance();
+            $stmt = $db->prepare('SELECT * FROM password_resets WHERE user_type = :user_type AND user_ref_id = :user_ref_id AND expires_at >= NOW() ORDER BY created_at DESC LIMIT 1');
+            $stmt->execute([':user_type' => $user['role'], ':user_ref_id' => $user['id']]);
+            $reset = $stmt->fetch();
+
+            if (!$reset || empty($reset['code_hash']) || !password_verify($code, $reset['code_hash'])) {
+                return $this->view('auth/reset', ['error' => 'Invalid or expired reset code.', 'show_verification' => true, 'verification_email' => $email]);
+            }
+
             if (empty($password) || $password !== $confirm) {
-                return $this->view('auth/reset', ['error' => 'Passwords must match.', 'token' => $token]);
+                return $this->view('auth/reset', ['error' => 'Passwords must match.', 'show_verification' => true, 'verification_email' => $email]);
             }
 
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-            switch ($reset['user_type']) {
+            switch ($user['role']) {
                 case 'admin':
-                    $db->prepare('UPDATE admins SET password = :password WHERE id = :id')->execute([':password' => $hashedPassword, ':id' => $reset['user_ref_id']]);
+                    $db->prepare('UPDATE admins SET password = :password WHERE id = :id')->execute([':password' => $hashedPassword, ':id' => $user['id']]);
                     break;
                 case 'librarian':
-                    $db->prepare('UPDATE librarians SET password = :password WHERE id = :id')->execute([':password' => $hashedPassword, ':id' => $reset['user_ref_id']]);
+                    $db->prepare('UPDATE librarians SET password = :password WHERE id = :id')->execute([':password' => $hashedPassword, ':id' => $user['id']]);
                     break;
                 case 'student':
-                    $db->prepare('UPDATE students SET password = :password WHERE id = :id')->execute([':password' => $hashedPassword, ':id' => $reset['user_ref_id']]);
+                    $db->prepare('UPDATE students SET password = :password WHERE id = :id')->execute([':password' => $hashedPassword, ':id' => $user['id']]);
                     break;
                 case 'faculty':
-                    $db->prepare('UPDATE faculty SET password = :password WHERE id = :id')->execute([':password' => $hashedPassword, ':id' => $reset['user_ref_id']]);
+                    $db->prepare('UPDATE faculty SET password = :password WHERE id = :id')->execute([':password' => $hashedPassword, ':id' => $user['id']]);
                     break;
             }
 
             $db->prepare('DELETE FROM password_resets WHERE id = :id')->execute([':id' => $reset['id']]);
-            return $this->view('auth/reset', ['success' => 'Password updated successfully. You may now log in.', 'token' => $token]);
+            unset($_SESSION['password_reset_user_type'], $_SESSION['password_reset_user_id'], $_SESSION['password_reset_email']);
+            return $this->view('auth/reset', ['success' => 'Password updated successfully. You may now log in.', 'show_verification' => false]);
         }
 
-        $this->view('auth/reset', ['title' => 'Reset Password', 'token' => $token]);
+        if ($role && $userRefId && $email) {
+            return $this->view('auth/reset', ['title' => 'Reset Password', 'show_verification' => true, 'verification_email' => $email]);
+        }
+
+        $this->view('auth/forgot', ['title' => 'Forgot Password']);
     }
 
     public function logout()

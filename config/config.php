@@ -36,6 +36,8 @@ function libai_env($key, $default = '')
     return $value;
 }
 
+date_default_timezone_set(libai_env('APP_TIMEZONE', 'Asia/Manila'));
+
 // Basic configuration for LibAI
 define('BASE_URL', libai_env('BASE_URL', '/LIBAI'));
 define('APP_NAME', libai_env('APP_NAME', 'LibAI'));

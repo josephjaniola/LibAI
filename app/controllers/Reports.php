@@ -49,6 +49,13 @@ class Reports extends Controller
         $this->view('admin/reports/index', ['most'=>$most, 'overdue'=>$overdue['cnt'] ?? 0, 'monthly'=>$monthly, 'bycat'=>$bycat]);
     }
 
+    public function overdue()
+    {
+        $this->ensureLibrarianOrAdmin();
+        $records = (new Borrow_model())->getDueOrOverdueWithBooks();
+        $this->view('admin/reports/overdue', ['records' => $records]);
+    }
+
     public function export()
     {
         $this->ensureLibrarianOrAdmin();
